@@ -1,0 +1,205 @@
+//~ rjf: Rect Shader
+@embed r_d3d11_g_rect_shader_src:
+"""
+//- rjf: globals
+
+cbuffer Globals : register(b0)
+{
+    float2 viewport_size;
+    float sdf_mask_boldness;
+    float sdf_mask_softness;
+    row_major float4x4 albedo_sample_channel_map;
+    float2 albedo_t2d_size;
+}
+
+//- rjf: input/output attributes
+
+struct VertexShaderInputInstanced
+{
+    float4 p     : POS;
+    float4 t     : TEX;
+    float4 color00 : COL0;
+    float4 color01 : COL1;
+    float4 color10 : COL2;
+    float4 color11 : COL3;
+    float corner_radius : CRAD;
+    float border_thickness : BTHC;
+    uint vertex_id : SV_VertexID;
+};
+
+struct VertexShaderOutput
+{
+    float4 position : SV_POSITION;
+    float2 rect_pos : POS;
+    float2 rect_size: PSIZE;
+    float2 texcoord : TEX;
+    float4 color    : COL;
+    float corner_radius : CRAD;
+    float border_thickness : BTHC;
+};
+
+//- rjf: resources
+
+Texture2D albedo_t2d         : register(t0);
+Texture2D sdf_mask_t2d       : register(t1);
+SamplerState default_sampler : register(s0);
+
+//- rjf: helpers
+
+float RectSDF(float2 sample_pos, float2 rect_pos, float2 rect_size, float r)
+{
+    float2 rect_center = rect_pos + rect_size/2;
+    float2 d2 = abs(sample_pos - rect_center) - rect_size/2 + float2(r, r);
+    return min(max(d2.x, d2.y), 0.0) + length(max(d2, 0.0)) - r;   
+}
+
+//- rjf: shaders
+
+VertexShaderOutput
+vs_main(VertexShaderInputInstanced input)
+{
+    float2 p0 = float2(input.p.x, input.p.y);
+    float2 p1 = float2(input.p.z, input.p.w);
+    float2 p_size = abs(p1 - p0);
+    float2 t0 = float2(input.t.x, input.t.y);
+    float2 t1 = float2(input.t.z, input.t.w);
+    float4 c00 = input.color00;
+    float4 c01 = input.color01;
+    float4 c10 = input.color10;
+    float4 c11 = input.color11;
+    
+    float2 p_verts[] =
+    {
+        float2(p0.x, viewport_size.y - p1.y),
+        float2(p0.x, viewport_size.y - p0.y),
+        float2(p1.x, viewport_size.y - p1.y),
+        float2(p1.x, viewport_size.y - p0.y),
+    };
+    
+    float2 t_verts[] =
+    {
+        float2(t0.x/albedo_t2d_size.x, t1.y/albedo_t2d_size.y),
+        float2(t0.x/albedo_t2d_size.x, t0.y/albedo_t2d_size.y),
+        float2(t1.x/albedo_t2d_size.x, t1.y/albedo_t2d_size.y),
+        float2(t1.x/albedo_t2d_size.x, t0.y/albedo_t2d_size.y),
+    };
+    
+    float4 colors[] =
+    {
+        c01,
+        c00,
+        c11,
+        c10,
+    };
+    
+    VertexShaderOutput output;
+    output.position  = float4(2 * p_verts[input.vertex_id].x / viewport_size.x - 1.f,
+                              2 * p_verts[input.vertex_id].y / viewport_size.y - 1.f,
+                              0.f,
+                              1.f);
+    output.rect_pos  = p0;
+    output.rect_size = p_size;
+    output.texcoord  = t_verts[input.vertex_id];
+    output.color     = colors[input.vertex_id];
+    output.corner_radius = input.corner_radius;
+    output.border_thickness = input.border_thickness;
+    return output;
+}
+
+float4
+ps_main(VertexShaderOutput input) : SV_TARGET
+{
+    // rjf: get colors
+    float4 tint = input.color;
+    float4 albedo_sample   = mul(albedo_t2d.Sample(default_sampler, input.texcoord), albedo_sample_channel_map);
+    float4 sdf_mask_sample = mul(sdf_mask_t2d.Sample(default_sampler, input.texcoord), albedo_sample_channel_map);
+    
+    // rjf: derive things from colors
+    float boldness = 0.5;
+    float softness = 0.3;
+    float sdf_mask_factor = smoothstep(1-boldness, 1-boldness + softness, sdf_mask_sample.x);
+    
+    // rjf: apply rect corner radius
+    float corner_radius_d = RectSDF(input.position.xy, input.rect_pos, input.rect_size, input.corner_radius);
+    float corner_radius_f = saturate(corner_radius_d);
+    
+    // rjf: apply border thickness
+    float border_thickness_d = RectSDF(input.position.xy,
+                                       input.rect_pos+input.border_thickness,
+                                       input.rect_size-input.border_thickness*2,
+                                       max(input.corner_radius-input.border_thickness, 0));
+    float border_thickness_f = saturate(border_thickness_d);
+    if(input.border_thickness == 0)
+    {
+        border_thickness_f = 1;
+    }
+    
+    // rjf: form+return final color
+    float4 final_color = albedo_sample;
+    final_color *= sdf_mask_factor;
+    final_color *= 1-corner_radius_f;
+    final_color *= border_thickness_f;
+    final_color *= tint;
+    return final_color;
+}
+"""
+
+//~ rjf: Triangle Shader
+@embed r_d3d11_g_triangle_shader_src:
+"""
+//- rjf: globals
+
+cbuffer Globals : register(b0)
+{
+    float2 viewport_size;
+}
+
+//- rjf: input/output attributes
+
+struct VertexShaderInputInstanced
+{
+    float2 p0      : POS0;
+    float2 p1      : POS1;
+    float2 p2      : POS2;
+    float4 color0  : COL0;
+    float4 color1  : COL1;
+    float4 color2  : COL2;
+    uint vertex_id : SV_VertexID;
+};
+
+struct VertexShaderOutput
+{
+    float4 p     : POS;
+    float4 color : COL;
+};
+
+//- rjf: shaders
+
+VertexShaderOutput
+vs_main(VertexShaderInputInstanced input)
+{
+    float3 p0 = input.p0;
+    float3 p1 = input.p1;
+    float3 p2 = input.p2;
+    float4 c0 = input.color0;
+    float4 c1 = input.color1;
+    float4 c2 = input.color2;
+    float3 p[] = { p0, p1, p2 };
+    float4 c[] = { c0, c1, c2 };
+    
+    VertexShaderOutput output;
+    output.position  = float4(2 * p[input.vertex_id].x / viewport_size.x - 1.f,
+                              2 * p[input.vertex_id].y / viewport_size.y - 1.f,
+                              0.f,
+                              1.f);
+    output.color     = colors[input.vertex_id];
+    return output;
+}
+
+float4
+ps_main(VertexShaderOutput input) : SV_TARGET
+{
+    float4 tint = input.color;
+    return tint;
+}
+"""

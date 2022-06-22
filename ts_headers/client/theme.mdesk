@@ -1,0 +1,65 @@
+
+@table(name, lower_name, r, g, b, a)
+TM_Table:
+{
+    { Null                      "null"                     1.00f 0.00f 1.00f 1.00f }
+    
+    //- rjf: base UI colors
+    { BaseBackground            "base_background"          0.15f 0.15f 0.15f 0.80f }
+    { BaseText                  "base_text"                0.90f 0.90f 0.90f 1.00f }
+    { BaseTextWeak              "base_text_weak"           0.90f 0.90f 0.90f 0.50f }
+    { BaseBorder                "base_border"              1.00f 1.00f 1.00f 0.20f }
+    { BaseTextSelection         "base_text_selection"      0.50f 0.80f 1.00f 0.20f }
+    { DropSite                  "drop_site"                1.00f 1.00f 1.00f 0.30f }
+    { KeyboardFocus             "keyboard_focus"           1.00f 0.60f 0.20f 1.00f }
+    { ErrorText                 "error_text"               1.00f 0.20f 0.18f 1.00f }
+    { CanvasBackground          "canvas_background"        0.05f 0.05f 0.05f 1.00f }
+    { TabActive                 "tab_active"               0.30f 0.30f 0.30f 1.00f }
+    { TabInactive               "tab_inactive"             0.10f 0.10f 0.10f 1.00f }
+    
+    //- rjf: code colors
+    { CodePlain                 "code_plain"               0.72f 0.58f 0.40f 1.00f }
+    { CodeKeyword               "code_keyword"             0.95f 0.75f 0.25f 1.00f }
+    { CodeStringLiteral         "code_string_literal"      0.90f 0.82f 0.40f 1.00f }
+    { CodeCharLiteral           "code_char_literal"        0.90f 0.82f 0.40f 1.00f }
+    { CodeNumericLiteral        "code_numeric_literal"     0.75f 0.92f 0.60f 1.00f }
+    { CodeOperator              "code_operator"            0.72f 0.38f 0.30f 0.80f }
+    { CodeDelimiter             "code_delimiter"           0.52f 0.38f 0.20f 1.00f }
+    { CodeComment               "code_comment"             0.50f 0.50f 0.50f 0.80f }
+    { CodePreprocessor          "code_preprocessor"        0.80f 0.30f 0.30f 0.90f }
+    { CodeLineNumberInactive    "code_line_number_inactive"0.55f 0.55f 0.55f 0.50f }
+    { CodeLineNumberActive      "code_line_number_active"  0.95f 0.95f 0.95f 0.60f }
+    { CodeRangeHighlight        "code_range_highlight"     1.00f 0.90f 0.30f 0.40f }
+    { CodeCommentHighlight1     "code_comment_highlight1"  1.00f 0.30f 0.30f 1.00f }
+    { CodeCommentHighlight2     "code_comment_highlight2"  0.30f 0.90f 0.30f 1.00f }
+    { CodeCommentHighlight3     "code_comment_highlight3"  0.20f 0.30f 0.90f 1.00f }
+    { CodeCommentHighlight4     "code_comment_highlight4"  1.00f 0.90f 0.30f 1.00f }
+    { CodeCursor                "code_cursor"              0.40f 0.98f 0.20f 1.00f }
+    { CodeCursorAlt             "code_cursor_alt"          0.98f 0.40f 0.20f 1.00f }
+    
+}
+
+@table_gen_enum TM_ColorCode:
+{
+    @expand(TM_Table a)
+        `TM_ColorCode_$(a.name),`;
+    `TM_ColorCode_COUNT`;
+}
+
+@table_gen_data(String8) tm_g_color_code_string_table:
+{
+    @expand(TM_Table a)
+        `Str8LitComp("$(a.name)"),`;
+}
+
+@table_gen_data(String8) tm_g_color_code_string_lowercase_table:
+{
+    @expand(TM_Table a)
+        `Str8LitComp("$(a.lower_name)"),`;
+}
+
+@table_gen_data(Vec4F32) tm_g_color_code_defaults_table:
+{
+    @expand(TM_Table a)
+        `{$(a.r), $(a.g), $(a.b), $(a.a)},`;
+}

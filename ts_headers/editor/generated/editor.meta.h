@@ -1,0 +1,118 @@
+typedef enum ED_TokenKind
+{
+ED_TokenKind_Null,
+ED_TokenKind_Keyword,
+ED_TokenKind_Identifier,
+ED_TokenKind_NumericLiteral,
+ED_TokenKind_StringLiteral,
+ED_TokenKind_CharLiteral,
+ED_TokenKind_Operator,
+ED_TokenKind_Delimiter,
+ED_TokenKind_Comment,
+ED_TokenKind_Preprocessor,
+ED_TokenKind_ScopeOpen,
+ED_TokenKind_ScopeClose,
+ED_TokenKind_ParenOpen,
+ED_TokenKind_ParenClose,
+ED_TokenKind_BlockCommentOpen,
+ED_TokenKind_BlockCommentClose,
+ED_TokenKind_MultiLineStringLiteralOpen,
+ED_TokenKind_MultiLineStringLiteralClose,
+ED_TokenKind_COUNT
+}
+ED_TokenKind;
+
+typedef enum ED_TokenRangeKind
+{
+ED_TokenRangeKind_Null,
+ED_TokenRangeKind_Scope,
+ED_TokenRangeKind_Paren,
+ED_TokenRangeKind_BlockComment,
+ED_TokenRangeKind_MultiLineStringLiteral,
+ED_TokenRangeKind_COUNT
+}
+ED_TokenRangeKind;
+
+typedef enum ED_LineEndingEncoding
+{
+ED_LineEndingEncoding_Null,
+ED_LineEndingEncoding_LF,
+ED_LineEndingEncoding_CRLF,
+ED_LineEndingEncoding_COUNT
+}
+ED_LineEndingEncoding;
+
+typedef enum ED_CmdKind
+{
+ED_CmdKind_Null,
+ED_CmdKind_MoveRight,
+ED_CmdKind_MoveLeft,
+ED_CmdKind_MoveRightSelect,
+ED_CmdKind_MoveLeftSelect,
+ED_CmdKind_MoveRightWord,
+ED_CmdKind_MoveLeftWord,
+ED_CmdKind_MoveRightWordSelect,
+ED_CmdKind_MoveLeftWordSelect,
+ED_CmdKind_MoveToLineStart,
+ED_CmdKind_MoveToLineEnd,
+ED_CmdKind_MoveToLineStartSelect,
+ED_CmdKind_MoveToLineEndSelect,
+ED_CmdKind_MoveToVisualLineStart,
+ED_CmdKind_MoveToVisualLineEnd,
+ED_CmdKind_MoveToVisualLineStartSelect,
+ED_CmdKind_MoveToVisualLineEndSelect,
+ED_CmdKind_MoveUp,
+ED_CmdKind_MoveDown,
+ED_CmdKind_MoveUpSelect,
+ED_CmdKind_MoveDownSelect,
+ED_CmdKind_MoveUpVisual,
+ED_CmdKind_MoveDownVisual,
+ED_CmdKind_MoveUpVisualSelect,
+ED_CmdKind_MoveDownVisualSelect,
+ED_CmdKind_MoveUpToBlank,
+ED_CmdKind_MoveDownToBlank,
+ED_CmdKind_MoveUpToBlankSelect,
+ED_CmdKind_MoveDownToBlankSelect,
+ED_CmdKind_ToggleScopeSide,
+ED_CmdKind_ToggleScopeSideSelect,
+ED_CmdKind_DeleteForward,
+ED_CmdKind_DeleteBackward,
+ED_CmdKind_DeleteForwardWord,
+ED_CmdKind_DeleteBackwardWord,
+ED_CmdKind_CopySelection,
+ED_CmdKind_CutSelection,
+ED_CmdKind_Paste,
+ED_CmdKind_Undo,
+ED_CmdKind_Redo,
+ED_CmdKind_ToggleInsertMode,
+ED_CmdKind_ToggleMultiCursorMode,
+ED_CmdKind_PlaceCursor,
+ED_CmdKind_ClearExtraCursors,
+ED_CmdKind_WriteText,
+ED_CmdKind_SwapLineUp,
+ED_CmdKind_SwapLineDown,
+ED_CmdKind_AutoIndentLine,
+ED_CmdKind_AutoIndentScope,
+ED_CmdKind_AutoIndentSelection,
+ED_CmdKind_COUNT
+}
+ED_CmdKind;
+
+extern String8 ed_g_cmd_kind_string_table[50];
+
+extern String8 ed_g_cmd_kind_desc_table[50];
+
+engine_global String8 ed_g_token_kind_key_table[18];
+
+engine_global B8 ed_g_token_kind_is_range_endpoint_table[18];
+
+engine_global ED_TokenKind ed_g_token_range_point_kind_start_token_kind_table[5];
+
+engine_global ED_TokenKind ed_g_token_range_point_kind_end_token_kind_table[5];
+
+engine_global ED_TokenKind ed_g_token_range_point_kind_content_token_kind_table[5];
+
+engine_global String8 ed_g_token_range_point_kind_string_table[5];
+
+engine_global String8 ed_g_line_ending_encoding_string_table[3];
+

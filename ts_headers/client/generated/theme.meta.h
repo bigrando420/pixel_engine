@@ -1,0 +1,42 @@
+typedef enum TM_ColorCode
+{
+TM_ColorCode_Null,
+TM_ColorCode_BaseBackground,
+TM_ColorCode_BaseText,
+TM_ColorCode_BaseTextWeak,
+TM_ColorCode_BaseBorder,
+TM_ColorCode_BaseTextSelection,
+TM_ColorCode_DropSite,
+TM_ColorCode_KeyboardFocus,
+TM_ColorCode_ErrorText,
+TM_ColorCode_CanvasBackground,
+TM_ColorCode_TabActive,
+TM_ColorCode_TabInactive,
+TM_ColorCode_CodePlain,
+TM_ColorCode_CodeKeyword,
+TM_ColorCode_CodeStringLiteral,
+TM_ColorCode_CodeCharLiteral,
+TM_ColorCode_CodeNumericLiteral,
+TM_ColorCode_CodeOperator,
+TM_ColorCode_CodeDelimiter,
+TM_ColorCode_CodeComment,
+TM_ColorCode_CodePreprocessor,
+TM_ColorCode_CodeLineNumberInactive,
+TM_ColorCode_CodeLineNumberActive,
+TM_ColorCode_CodeRangeHighlight,
+TM_ColorCode_CodeCommentHighlight1,
+TM_ColorCode_CodeCommentHighlight2,
+TM_ColorCode_CodeCommentHighlight3,
+TM_ColorCode_CodeCommentHighlight4,
+TM_ColorCode_CodeCursor,
+TM_ColorCode_CodeCursorAlt,
+TM_ColorCode_COUNT
+}
+TM_ColorCode;
+
+extern String8 tm_g_color_code_string_table[30];
+
+extern String8 tm_g_color_code_string_lowercase_table[30];
+
+extern Vec4F32 tm_g_color_code_defaults_table[30];
+

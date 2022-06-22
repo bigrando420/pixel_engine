@@ -1,0 +1,130 @@
+////////////////////////////////
+//~ rjf: Tables
+
+@table(name,  take_text_input)
+CW_ViewTable:
+{
+    {Null        0}
+    {FileSystem  0}
+}
+
+@table(name) CW_CmdFastPathTable:
+{
+    {Null}
+    {Run}
+    {PutName}
+    {PutNameSpace}
+    {PutNamePath}
+    {PutNameViewCommand}
+}
+
+@table(name, fastpath, keep_input, view, string, desc)
+CW_CmdTable:
+{
+    {Null                            Null                0           Null        ""                                          ""                                                                                    }
+    
+    //- rjf: windows
+    {Window                          Run                 0           Null        "window"                                    "Opens a new window."                                                                 }
+    
+    //- rjf: panel management
+    {NewPanelRight                   Run                 0           Null        "new_panel_right"                           "Makes a new panel to the right of the active panel."                                 }
+    {NewPanelDown                    Run                 0           Null        "new_panel_down"                            "Makes a new panel at the bottom of the active panel."                                }
+    {NextPanel                       Run                 0           Null        "next_panel"                                "Cycles the active panel forward."                                                    }
+    {PrevPanel                       Run                 0           Null        "prev_panel"                                "Cycles the active panel backwards."                                                  }
+    {ClosePanel                      Run                 0           Null        "close_panel"                               "Closes the currently active panel."                                                  }
+    
+    //- rjf: view management
+    {NextView                        Run                 0           Null        "next_view"                                 "Cycles the active view forward."                                                     }
+    {PrevView                        Run                 0           Null        "prev_view"                                 "Cycles the active view backwards."                                                   }
+    {CloseView                       Run                 0           Null        "close_view"                                "Closes the currently active view."                                                   }
+    {EditView                        PutNameViewCommand  0           Null        "edit_view"                                 "Changes the currently active view's command."                                        }
+    
+    //- rjf: projects
+    {OpenProject                     PutNamePath         0           FileSystem  "open_project"                              "Opens a project file and sets it as the active project."                             }
+    {CloseProject                    Run                 0           Null        "close_project"                             "Closes the active project, if there is one."                                         }
+    
+    //- rjf: system commands
+    {SystemCommand                   PutNamePath         0           FileSystem  "system_cmd"                                "Runs a given system command."                                                        }
+}
+
+////////////////////////////////
+//~ rjf: Generators
+
+@table_gen_enum
+CW_ViewKind:
+{
+    @expand(CW_ViewTable a)
+        `CW_ViewKind_$(a.name),`,
+    CW_ViewKind_COUNT
+}
+
+@table_gen_enum
+CW_CmdFastPath:
+{
+    @expand(CW_CmdFastPathTable, a)
+        `CW_CmdFastPath_$(a.name),`,
+    `CW_CmdFastPath_COUNT`,
+}
+
+@table_gen_enum
+CW_CmdKind:
+{
+    @expand(CW_CmdTable, a)
+        `CW_CmdKind_$(a.name),`,
+    `CW_CmdKind_COUNT`,
+}
+
+@table_gen_data(String8)
+cw_g_cmd_kind_string_table:
+{
+    @expand(CW_CmdTable, a)
+        `Str8LitComp("$(a.string)"),`,
+}
+
+@table_gen_data(String8)
+cw_g_cmd_kind_desc_table:
+{
+    @expand(CW_CmdTable, a)
+        `Str8LitComp("$(a.desc)"),`,
+}
+
+@table_gen_data(CW_CmdFastPath)
+cw_g_cmd_kind_fast_path_table:
+{
+    @expand(CW_CmdTable, a)
+        `CW_CmdFastPath_$(a.fastpath),`,
+}
+
+@table_gen_data(CW_ViewKind)
+cw_g_cmd_kind_view_kind_table:
+{
+    @expand(CW_CmdTable, a)
+        `CW_ViewKind_$(a.view),`,
+}
+
+@table_gen_data(B8)
+cw_g_cmd_kind_keep_input_table:
+{
+    @expand(CW_CmdTable, a)
+        `$(a.keep_input),`;
+}
+
+@table_gen
+{
+    @expand(CW_ViewTable a)
+        `CW_VIEW_FUNCTION_DEF($(a.name));`;
+}
+
+@table_gen_data(B8)
+cw_g_view_kind_text_focus_table:
+{
+    @expand(CW_ViewTable a)
+        `$(a.take_text_input),`;
+}
+
+@table_gen_data(`CW_ViewFunction*`)
+cw_g_view_kind_function_table:
+{
+    @expand(CW_ViewTable a)
+        `CW_VIEW_FUNCTION_NAME($(a.name)),`;
+}

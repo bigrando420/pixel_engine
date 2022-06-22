@@ -1,0 +1,34 @@
+@table(name, name_lower, type)
+UI_StackTable:
+{
+    { FixedX          fixed_x           F32            }
+    { FixedY          fixed_y           F32            }
+    { FixedWidth      fixed_width       F32            }
+    { FixedHeight     fixed_height      F32            }
+    { PrefWidth       pref_width        UI_Size        }
+    { PrefHeight      pref_height       UI_Size        }
+    { MinWidth        min_width         F32            }
+    { MinHeight       min_height        F32            }
+    { Flags           flags             UI_BoxFlags    }
+    { BackgroundColor background_color  Vec4F32        }
+    { TextColor       text_color        Vec4F32        }
+    { BorderColor     border_color      Vec4F32        }
+    { Font            font              R_Font         }
+    { CornerRadius    corner_radius     F32            }
+}
+
+@table_gen
+{
+    `#define UI_StackDecls struct{\\`;
+    @expand(UI_StackTable a)
+        `struct { $(a.type) active; $(a.type) v[64]; U64 count; } $(a.name_lower);\\`;
+    `}`;
+}
+
+@table_gen
+{
+    `#define UI_ZeroAllStacks(ui_state) do{\\`;
+    @expand(UI_StackTable a)
+        `MemoryZeroStruct(&ui_state->$(a.name_lower));\\`;
+    `} while(0)`;
+}

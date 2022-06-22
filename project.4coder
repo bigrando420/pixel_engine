@@ -1,0 +1,63 @@
+version(1);
+
+project_name = "PIXEL ENGINE";
+
+patterns =
+{
+	"*.c",
+	"*.cpp",
+	"*.ds",
+    "*.md",
+    "*.page",
+    "*.mdesk",
+	"*.h",
+	"*.inc",
+	"*.bat",
+	"*.sh",
+	"*.4coder",
+	"*.txt",
+};
+
+blacklist_patterns =
+{
+	".*",
+};
+
+load_paths =
+{
+	{
+		{ {".", .recursive = true, .relative = true } }, .os = "win"
+	},
+};
+
+command_list =
+{
+	
+    {
+        .name = "build_scratch",
+        .out = "*compilation*",
+        .footer_panel = true,
+        .save_dirty_files = true,
+        .cursor_at_end = false,
+        .cmd =
+        {
+            { "build_scratch.bat", .os = "win" },
+        },
+    },
+    
+    {
+        .name = "run_scratch",
+        .out = "*compilation*",
+        .footer_panel = true,
+        .save_dirty_files = true,
+        .cursor_at_end = false,
+        .cmd =
+        {
+            { "pushd build && scratch.exe && popd", .os = "win" },
+        },
+    },
+    
+};
+
+fkey_command[1] = "build_scratch";
+fkey_command[3] = "run_scratch";

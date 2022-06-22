@@ -1,0 +1,23 @@
+@table(name)
+C_EntityKindTable:
+{
+    {Nil             }
+    {Root            }
+    {File            }
+    {Folder          }
+    {StableTextPoint }
+}
+
+@table_gen_enum C_EntityKind:
+{
+    @expand(C_EntityKindTable a)
+        `C_EntityKind_$(a.name),`;
+    `C_EntityKind_COUNT`;
+}
+
+@engine @table_gen_data(String8)
+c_g_entity_kind_string_table:
+{
+    @expand(C_EntityKindTable a)
+        `Str8LitComp("$(a.name)"),`;
+}

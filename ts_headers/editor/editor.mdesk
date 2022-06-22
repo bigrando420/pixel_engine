@@ -1,0 +1,211 @@
+////////////////////////////////
+//~ rjf: Tables
+
+@table(name, fastpath, keep_input, view, string, desc)
+ED_CmdTable:
+{
+    {Null                            Null                0           Null        ""                                          ""                                                                                    }
+    
+    //- rjf: horizontal cursor movement controls
+    {MoveRight                       Run                 0           Null        "move_right"                                "Moves the cursor right by one character."                                            }
+    {MoveLeft                        Run                 0           Null        "move_left"                                 "Moves the cursor left by one character."                                             }
+    {MoveRightSelect                 Run                 0           Null        "move_right_select"                         "Moves the cursor right by one character, while selecting."                           }
+    {MoveLeftSelect                  Run                 0           Null        "move_left_select"                          "Moves the cursor left by one character, while selecting."                            }
+    {MoveRightWord                   Run                 0           Null        "move_right_word"                           "Moves the cursor right by one word."                                                 }
+    {MoveLeftWord                    Run                 0           Null        "move_left_word"                            "Moves the cursor left by one word."                                                  }
+    {MoveRightWordSelect             Run                 0           Null        "move_right_word_select"                    "Moves the cursor right by one word, while selecting."                                }
+    {MoveLeftWordSelect              Run                 0           Null        "move_left_word_select"                     "Moves the cursor left by one word, while selecting."                                 }
+    {MoveToLineStart                 Run                 0           Null        "move_to_line_start"                        "Moves the cursor to the start of the line."                                          }
+    {MoveToLineEnd                   Run                 0           Null        "move_to_line_end"                          "Moves the cursor to the end of the line."                                            }
+    {MoveToLineStartSelect           Run                 0           Null        "move_to_line_start_select"                 "Moves the cursor to the start of the line, while selecting."                         }
+    {MoveToLineEndSelect             Run                 0           Null        "move_to_line_end_select"                   "Moves the cursor to the end of the line, while selecting."                           }
+    {MoveToVisualLineStart           Run                 0           Null        "move_to_visual_line_start"                 "Moves the cursor to the start of the visual line."                                   }
+    {MoveToVisualLineEnd             Run                 0           Null        "move_to_visual_line_end"                   "Moves the cursor to the end of the visual line."                                     }
+    {MoveToVisualLineStartSelect     Run                 0           Null        "move_to_visual_line_start_select"          "Moves the cursor to the start of the visual line, while selecting."                  }
+    {MoveToVisualLineEndSelect       Run                 0           Null        "move_to_visual_line_end_select"            "Moves the cursor to the end of the visual line, while selecting."                    }
+    
+    //- rjf: vertical cursor movement controls
+    {MoveUp                          Run                 0           Null        "move_up"                                   "Moves the cursor up one line."                                                       }
+    {MoveDown                        Run                 0           Null        "move_down"                                 "Moves the cursor down one line."                                                     }
+    {MoveUpSelect                    Run                 0           Null        "move_up_select"                            "Moves the cursor up one line, while selecting."                                      }
+    {MoveDownSelect                  Run                 0           Null        "move_down_select"                          "Moves the cursor down one line, while selecting."                                    }
+    {MoveUpVisual                    Run                 0           Null        "move_up_visual"                            "Moves the cursor up one line."                                                       }
+    {MoveDownVisual                  Run                 0           Null        "move_down_visual"                          "Moves the cursor down one line."                                                     }
+    {MoveUpVisualSelect              Run                 0           Null        "move_up_visual_select"                     "Moves the cursor up one line, while selecting."                                      }
+    {MoveDownVisualSelect            Run                 0           Null        "move_down_visual_select"                   "Moves the cursor down one line, while selecting."                                    }
+    {MoveUpToBlank                   Run                 0           Null        "move_up_to_blank"                          "Moves the cursor up to the previous blank line."                                     }
+    {MoveDownToBlank                 Run                 0           Null        "move_down_to_blank"                        "Moves the cursor down to the next blank line."                                       }
+    {MoveUpToBlankSelect             Run                 0           Null        "move_up_to_blank_select"                   "Moves the cursor up to the previous blank line, while selecting."                    }
+    {MoveDownToBlankSelect           Run                 0           Null        "move_down_to_blank_select"                 "Moves the cursor down to the next blank line, while selecting."                      }
+    
+    //- rjf: scope based movement controls
+    {ToggleScopeSide                 Run                 0           Null        "toggle_scope_side"                         "Moves the cursor between both sides of the current enclosure."                       }
+    {ToggleScopeSideSelect           Run                 0           Null        "toggle_scope_side_select"                  "Moves the cursor between both sides of the current enclosure, while selecting."      }
+    
+    //- rjf: deletion controls
+    {DeleteForward                   Run                 0           Null        "delete_forward"                            "Deletes one character forward, or the selected range, if any."                       }
+    {DeleteBackward                  Run                 0           Null        "delete_backward"                           "Deletes one character backward, or the selected range, if any."                      }
+    {DeleteForwardWord               Run                 0           Null        "delete_forward_word"                       "Deletes one word forward, or the selected range, if any."                            }
+    {DeleteBackwardWord              Run                 0           Null        "delete_backward_word"                      "Deletes one word backward, or the selected range, if any."                           }
+    
+    //- rjf: copy/paste controls
+    {CopySelection                   Run                 0           Null        "copy"                                      "Copies the selected text to the clipboard."                                          }
+    {CutSelection                    Run                 0           Null        "cut"                                       "Copies the selected text to the clipboard, then deletes it."                         }
+    {Paste                           Run                 0           Null        "paste"                                     "Pastes the contents of the clipboard."                                               }
+    
+    //- rjf: undo/redo controls
+    {Undo                            Run                 0           Null        "undo"                                      "Reverses one change to the current file."                                            }
+    {Redo                            Run                 0           Null        "redo"                                      "Replays one change to the current file."                                             }
+    
+    //- rjf: edit mode controls
+    {ToggleInsertMode                Run                 0           Null        "toggle_insert_mode"                        "Toggles insert mode."                                                                }
+    {ToggleMultiCursorMode           Run                 0           Null        "toggle_multi_cursor_mode"                  "Toggles multi-cursor mode, which applies operations to all cursors."                 }
+    {PlaceCursor                     Run                 0           Null        "place_cursor"                              "Places an additional cursor, at the location of the main cursor."                    }
+    {ClearExtraCursors               Run                 0           Null        "clear_extra_cursors"                       "Clears all extra cursors that have been placed."                                     }
+    
+    //- rjf: text writing
+    {WriteText                       Run                 0           Null        "write_text"                                "Writes the text that was used to cause this command."                                }
+    {SwapLineUp                      Run                 0           Null        "swap_line_up"                              "Swaps the current line with the previous line."                                      }
+    {SwapLineDown                    Run                 0           Null        "swap_line_down"                            "Swaps the current line with the next line."                                          }
+    
+    //- rjf: auto-indent
+    {AutoIndentLine                  Run                 0           Null        "auto_indent_line"                          "Auto-indents the current line."                                                      }
+    {AutoIndentScope                 Run                 0           Null        "auto_indent_scope"                         "Auto-indents the current scope."                                                     }
+    {AutoIndentSelection             Run                 0           Null        "auto_indent_selection"                     "Auto-indents the current selection."                                                 }
+}
+
+@table(name key starter_or_ender)
+ED_TokenTable:
+{
+    {Null                           ""                                 0}
+    {Keyword                        "keyword"                          0}
+    {Identifier                     "identifier"                       0}
+    {NumericLiteral                 "numeric_literal"                  0}
+    {StringLiteral                  "string_literal"                   0}
+    {CharLiteral                    "char_literal"                     0}
+    {Operator                       "operator"                         0}
+    {Delimiter                      "delimiter"                        0}
+    {Comment                        "comment"                          0}
+    {Preprocessor                   "preprocessor"                     0}
+    {ScopeOpen                      "scope_open"                       1}
+    {ScopeClose                     "scope_close"                      1}
+    {ParenOpen                      "paren_open"                       1}
+    {ParenClose                     "paren_close"                      1}
+    {BlockCommentOpen               "block_comment_open"               1}
+    {BlockCommentClose              "block_comment_close"              1}
+    {MultiLineStringLiteralOpen     "multi_line_string_literal_open"   1}
+    {MultiLineStringLiteralClose    "multi_line_string_literal_close"  1}
+}
+
+@table(name, string, start_token_kind, end_token_kind, content_token_kind)
+ED_TokenRangeTable:
+{
+    {Null                    ""                           Null                        Null                        Null               }
+    {Scope                   "scope"                      ScopeOpen                   ScopeClose                  Null               }
+    {Paren                   "paren"                      ParenOpen                   ParenClose                  Null               }
+    {BlockComment            "block_comment"              BlockCommentOpen            BlockCommentClose           Comment            }
+    {MultiLineStringLiteral  "multi_line_string_literal"  MultiLineStringLiteralOpen  MultiLineStringLiteralClose StringLiteral      }
+}
+
+@table(name str)
+ED_LineEndingEncodingTable:
+{
+    {Null   "bin"}
+    {LF     "lf"}
+    {CRLF   "crlf"}
+}
+
+////////////////////////////////
+//~ rjf: Generators
+
+@table_gen_data(String8)
+ed_g_cmd_kind_string_table:
+{
+    @expand(ED_CmdTable, a)
+        `Str8LitComp("$(a.string)"),`,
+}
+
+@table_gen_data(String8)
+ed_g_cmd_kind_desc_table:
+{
+    @expand(ED_CmdTable, a)
+        `Str8LitComp("$(a.desc)"),`,
+}
+
+@table_gen_enum ED_TokenKind:
+{
+    @expand(ED_TokenTable a)
+        `ED_TokenKind_$(a.name),`;
+    `ED_TokenKind_COUNT`;
+}
+
+@engine @table_gen_data(String8)
+ed_g_token_kind_key_table:
+{
+    @expand(ED_TokenTable a)
+        `Str8LitComp("$(a.key)"),`;
+}
+
+@engine @table_gen_data(B8)
+ed_g_token_kind_is_range_endpoint_table:
+{
+    @expand(ED_TokenTable a)
+        `$(a.starter_or_ender),`;
+}
+
+@table_gen_enum ED_TokenRangeKind:
+{
+    @expand(ED_TokenRangeTable a)
+        `ED_TokenRangeKind_$(a.name),`;
+    `ED_TokenRangeKind_COUNT`;
+}
+
+@engine @table_gen_data(ED_TokenKind)
+ed_g_token_range_point_kind_start_token_kind_table:
+{
+    @expand(ED_TokenRangeTable a)
+        `ED_TokenKind_$(a.start_token_kind),`;
+}
+
+@engine @table_gen_data(ED_TokenKind)
+ed_g_token_range_point_kind_end_token_kind_table:
+{
+    @expand(ED_TokenRangeTable a)
+        `ED_TokenKind_$(a.end_token_kind),`;
+}
+
+@engine @table_gen_data(ED_TokenKind)
+ed_g_token_range_point_kind_content_token_kind_table:
+{
+    @expand(ED_TokenRangeTable a)
+        `ED_TokenKind_$(a.content_token_kind),`;
+}
+
+@engine @table_gen_data(String8)
+ed_g_token_range_point_kind_string_table:
+{
+    @expand(ED_TokenRangeTable a)
+        `Str8LitComp("$(a.string)"),`;
+}
+
+@table_gen_enum ED_LineEndingEncoding:
+{
+    @expand(ED_LineEndingEncodingTable a)
+        `ED_LineEndingEncoding_$(a.name),`;
+    `ED_LineEndingEncoding_COUNT`;
+}
+
+@engine @table_gen_data(String8)
+ed_g_line_ending_encoding_string_table:
+{
+    @expand(ED_LineEndingEncodingTable a)
+        `Str8LitComp("$(a.str)"),`;
+}
+
+@table_gen_enum
+ED_CmdKind:
+{
+    @expand(ED_CmdTable, a)
+        `ED_CmdKind_$(a.name),`,
+    `ED_CmdKind_COUNT`,
+}
