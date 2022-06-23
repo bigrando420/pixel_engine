@@ -34,9 +34,8 @@ struct S_State
     B8 is_simulating;
     
     Pixel pixels[SIM_Y][SIM_X];
-    U8 pixel_render_data[SIM_X * SIM_Y * 4];
-    
-    Vec2S32 test[64];
+    //U8 pixel_render_data[SIM_X * SIM_Y * 4];
+    Vec4U8 pixel_render_data[SIM_Y][SIM_X];
 };
 S_State *state;
 
@@ -55,19 +54,13 @@ function B8 AttemptDisperseWater(Pixel *water_pixel, Vec2S32 from_loc, Vec2S32 t
 function B8 AttemptFallPixel(Pixel *pixel, S32 x, S32 y);
 function B8 CanPixelMoveTo(Pixel *src, Pixel *dest);
 function void ApplyFrictionToPixel(Pixel *pixel);
-
-// NOTE(randy): is there an existing TS function for this?
-// TODO(randy): if not, pull out into base_math
-function B8 F32Compare(F32 a, F32 b, F32 epsilon)
-{
-    return (fabsf(a-b) < epsilon);
-}
-// TODO(randy): same goes for this
-#define Sign(_x__) ((_x__ > 0) - (_x__ < 0))
+function Vec4U8 *ColourAt(S32 x, S32 y);
 
 
-#define DRIP_SPEED 5
+//~ NOTE(randy): Prototype controls
 #define FRICTION 0.1f
-
+#define BRUSH_SIZE 8
+#define DRIP 1
+#define DRIP_SPEED 1
 
 #endif //SCRATCH_MAIN_H

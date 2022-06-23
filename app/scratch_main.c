@@ -1,5 +1,7 @@
 #include "engine_bundles/engine_full.h"
 
+#include "ts_additions.h"
+
 #include "os/os_entry_point.h"
 #include "os/os_entry_point.c"
 
@@ -43,7 +45,7 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
     }
     if (OS_KeyPress(events, window->handle, OS_Key_3, 0))
     {
-        //selected_type = 3;
+        selected_type = 0;
     }
     if (OS_KeyPress(events, window->handle, OS_Key_0, 0))
     {
@@ -52,12 +54,12 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
     
     if (OS_KeyPress(events, window->handle, OS_Key_MouseLeft, 0))
     {
-#if 1
+#if BRUSH_SIZE == 1
         Vec2S32 mouse = GetPixelAtMousePos(window);
         Pixel *pixel = PixelAt(mouse.x, mouse.y);
         pixel->type = selected_type;
 #else
-        S32 size = 12;
+        S32 size = BRUSH_SIZE;
         for (int y = size / -2; y < size / 2; y++)
             for (int x = size / -2; x < size / 2; x++)
         {
@@ -88,13 +90,19 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
         SetDefaultStage();
     }
     
-    
-    // NOTE(randy): drip
-#if 1
+    local_persist B8 drip_override = DRIP;
+    if (OS_KeyPress(events, window->handle, OS_Key_D, 0))
+    {
+        drip_override = !drip_override;
+    }
+#if DRIP
+    // yooooo we got the drip drip
+    // yuh yuh
     local_persist S32 update_count = 0;
     update_count++;
     Pixel *top_middle_px = PixelAt(SIM_X / 2, SIM_Y-1);
-    if (update_count % DRIP_SPEED == 0)
+    if (drip_override &&
+        update_count % DRIP_SPEED == 0)
     {
         top_middle_px->type = PIXEL_TYPE_sand;
     }
@@ -117,11 +125,29 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
         
         UpdatePixelRenderData();
         
+        // NOTE(randy): Brush preview
+        {
+            S32 size = BRUSH_SIZE;
+            for (int y = size / -2; y < size / 2; y++)
+                for (int x = size / -2; x < size / 2; x++)
+            {
+                Vec2S32 mouse = GetPixelAtMousePos(window);
+                Vec4U8 *col = ColourAt(mouse.x + x, SIM_Y-mouse.y + y);
+                if (col)
+                {
+                    col->r = 255;
+                    col->g = 255;
+                    col->b = 255;
+                    col->a = 255;
+                }
+            }
+        }
+        
         dr_state->backend.FillTexture2D(dr_state->os_eqp,
                                         texture,
                                         R2S64(V2S64(0, 0),
                                               size),
-                                        Str8(state->pixel_render_data, sizeof(state->pixel_render_data)));
+                                        Str8((U8*)state->pixel_render_data, sizeof(state->pixel_render_data)));
         
         DR_Sprite(&bucket,
                   V4F32(1.0f, 1.0f, 1.0f, 1.0f),
@@ -241,6 +267,15 @@ function Pixel *PixelAt(S32 x, S32 y)
     return &state->pixels[y][x];
 }
 
+function Vec4U8 *ColourAt(S32 x, S32 y)
+{
+    if (x < 0 || x >= SIM_X ||
+        y < 0 || y >= SIM_Y)
+        return 0;
+    
+    return &state->pixel_render_data[y][x];
+}
+
 function void SwapPixels(Pixel *from, Pixel *to)
 {
     Pixel t = *to;
@@ -263,56 +298,95 @@ function void UpdatePixelRenderData()
     for (int y = 0; y < SIM_Y; y++)
         for (int x = 0; x < SIM_X; x++)
     {
-        U8 *pixel_chnl = state->pixel_render_data + (y*SIM_X + x) * 4;
+        Vec4U8 *col = &state->pixel_render_data[y][x];
         
         switch (state->pixels[SIM_Y-y-1][x].type)
         {
-            //lmao
-            // TODO(randy): add in V4U8 type
             case PIXEL_TYPE_boundary:
             {
-                *pixel_chnl = 255;
-                pixel_chnl++;
-                *pixel_chnl = 0;
-                pixel_chnl++;
-                *pixel_chnl = 0;
-                pixel_chnl++;
-                *pixel_chnl = 255;
+                col->r = 145;
+                col->g = 139;
+                col->b = 134;
+                col->a = 255;
             } break;
             
             case PIXEL_TYPE_air:
             {
-                *pixel_chnl = 180;
-                pixel_chnl++;
-                *pixel_chnl = 203;
-                pixel_chnl++;
-                *pixel_chnl = 240;
-                pixel_chnl++;
-                *pixel_chnl = 255;
+                col->r = 180;
+                col->g = 203;
+                col->b = 240;
+                col->a = 255;
             } break;
             
             case PIXEL_TYPE_sand:
             {
-                *pixel_chnl = 242;
-                pixel_chnl++;
-                *pixel_chnl = 216;
-                pixel_chnl++;
-                *pixel_chnl = 145;
-                pixel_chnl++;
-                *pixel_chnl = 255;
+                col->r = 242;
+                col->g = 216;
+                col->b = 145;
+                col->a = 255;
             } break;
             
             case PIXEL_TYPE_water:
             {
-                *pixel_chnl = 74;
-                pixel_chnl++;
-                *pixel_chnl = 147;
-                pixel_chnl++;
-                *pixel_chnl = 244;
-                pixel_chnl++;
-                *pixel_chnl = 255;
+                col->r = 74;
+                col->g = 147;
+                col->b = 244;
+                col->a = 255;
             } break;
         }
+        
+        /* 
+                U8 *pixel_chnl = state->pixel_render_data + (y*SIM_X + x) * 4;
+                
+                switch (state->pixels[SIM_Y-y-1][x].type)
+                {
+                    //lmao
+                    // TODO(randy): add in V4U8 type
+                    case PIXEL_TYPE_boundary:
+                    {
+                        *pixel_chnl = 145;
+                        pixel_chnl++;
+                        *pixel_chnl = 139;
+                        pixel_chnl++;
+                        *pixel_chnl = 134;
+                        pixel_chnl++;
+                        *pixel_chnl = 255;
+                    } break;
+                    
+                    case PIXEL_TYPE_air:
+                    {
+                        *pixel_chnl = 180;
+                        pixel_chnl++;
+                        *pixel_chnl = 203;
+                        pixel_chnl++;
+                        *pixel_chnl = 240;
+                        pixel_chnl++;
+                        *pixel_chnl = 255;
+                    } break;
+                    
+                    case PIXEL_TYPE_sand:
+                    {
+                        *pixel_chnl = 242;
+                        pixel_chnl++;
+                        *pixel_chnl = 216;
+                        pixel_chnl++;
+                        *pixel_chnl = 145;
+                        pixel_chnl++;
+                        *pixel_chnl = 255;
+                    } break;
+                    
+                    case PIXEL_TYPE_water:
+                    {
+                        *pixel_chnl = 74;
+                        pixel_chnl++;
+                        *pixel_chnl = 147;
+                        pixel_chnl++;
+                        *pixel_chnl = 244;
+                        pixel_chnl++;
+                        *pixel_chnl = 255;
+                    } break;
+                }
+         */
     }
 }
 
@@ -484,18 +558,8 @@ function void StepPixel(Pixel *pixel, S32 x, S32 y)
             
             if (!AttemptFallPixel(pixel, x, y))
             {
-                // can't fall down, try L + R
-                
-                B8 is_stationary = 0;//(F32Compare(pixel->vel.y, 0.0f, 0.01f) && F32Compare(pixel->vel.x, 0.0f, 0.01f));
-                
-                if (!is_stationary)
+                if (!pixel->is_stationary)
                 {
-                    
-                    // move right or left (initial is based off of the sign)
-                    // if it can't, it flips the sign?
-                    
-                    // TODO(randy): check both direcitons if other fails
-                    
                     B8 has_x_vel = !F32Compare(pixel->vel.x, 0.0f, 0.01f);
                     B8 check_left_first;
                     if (has_x_vel)
@@ -554,6 +618,10 @@ function void StepPixel(Pixel *pixel, S32 x, S32 y)
                         }
                         
                         ApplyFrictionToPixel(pixel);
+                    }
+                    else
+                    {
+                        pixel->is_stationary = 1;
                     }
                 }
             }
@@ -627,7 +695,6 @@ function void ApplyFrictionToPixel(Pixel *pixel)
 function B8 AttemptFallPixel(Pixel *pixel, S32 x, S32 y)
 {
     // NOTE(randy): a solution to this max speed banding artifact would be to take the pixel's distance travelled across the frame and blue it in a line, like a fast moving object
-    
     
     // inertial resistance is the % chance a pixel will be dislodged (set to falling) by passing pixels
     
