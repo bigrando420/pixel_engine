@@ -89,12 +89,12 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
     }
     
     
-    // NOTE(randy): trickle
+    // NOTE(randy): drip
 #if 1
     local_persist S32 update_count = 0;
     update_count++;
     Pixel *top_middle_px = PixelAt(SIM_X / 2, SIM_Y-1);
-    if (update_count % 5 == 0)
+    if (update_count % DRIP_SPEED == 0)
     {
         top_middle_px->type = PIXEL_TYPE_sand;
     }
@@ -496,61 +496,64 @@ function void StepPixel(Pixel *pixel, S32 x, S32 y)
                     
                     // TODO(randy): check both direcitons if other fails
                     
-                    B8 moved_diagonal = 0;
-                    
-                    if (Sign(pixel->vel.x) == 1)
+                    B8 has_x_vel = !F32Compare(pixel->vel.x, 0.0f, 0.01f);
+                    B8 check_left_first;
+                    if (has_x_vel)
                     {
-                        if (CanPixelMoveTo(pixel, right) && CanPixelMoveTo(pixel, down_right))
-                        {
-                            SwapPixels(pixel, down_right);
-                            moved_diagonal = 1;
-                        }
+                        check_left_first = Sign(pixel->vel.x) == -1;
                     }
-                    else if (Sign(pixel->vel.x) == -1)
+                    else
                     {
-                        if (CanPixelMoveTo(pixel, left) && CanPixelMoveTo(pixel, down_left))
+                        check_left_first = rand() % 2 == 0;
+                    }
+                    
+                    // Attempt move diagonally
+                    {
+                        if (check_left_first &&
+                            CanPixelMoveTo(pixel, left) &&
+                            CanPixelMoveTo(pixel, down_left))
                         {
                             SwapPixels(pixel, down_left);
-                            moved_diagonal = 1;
+                            return;
+                        }
+                        
+                        if (CanPixelMoveTo(pixel, right) &&
+                            CanPixelMoveTo(pixel, down_right))
+                        {
+                            SwapPixels(pixel, down_right);
+                            return;
+                        }
+                        
+                        if (!check_left_first &&
+                            CanPixelMoveTo(pixel, left) &&
+                            CanPixelMoveTo(pixel, down_left))
+                        {
+                            SwapPixels(pixel, down_left);
+                            return;
                         }
                     }
                     
-                    if (!moved_diagonal)
+                    // NOTE(randy): attempt move sideways based off of X velocity
+                    if (has_x_vel)
                     {
-                        // NOTE(randy): move sideways
-                        if (!F32Compare(pixel->vel.x, 0.0f, 0.01f))
+                        if (pixel->vel.x < 0.0f)
                         {
-                            if (pixel->vel.x < 0.0f)
+                            if (CanPixelMoveTo(pixel, left))
                             {
-                                if (CanPixelMoveTo(pixel, left))
-                                {
-                                    SwapPixels(pixel, left);
-                                    pixel = left;
-                                }
-                            }
-                            else if (pixel->vel.x > 0.0f)
-                            {
-                                if (CanPixelMoveTo(pixel, right))
-                                {
-                                    SwapPixels(pixel, right);
-                                    pixel = right;
-                                }
-                            }
-                            
-                            const F32 friction = 0.4f;
-                            
-                            S32 sign = Sign(pixel->vel.x);
-                            F32 sub = fabsf(pixel->vel.x) - friction;
-                            
-                            if ((S32)Sign(sub * sign) != sign)
-                            {
-                                pixel->vel.x = 0.0f;
-                            }
-                            else
-                            {
-                                pixel->vel.x = sub * sign;
+                                SwapPixels(pixel, left);
+                                pixel = left;
                             }
                         }
+                        else if (pixel->vel.x > 0.0f)
+                        {
+                            if (CanPixelMoveTo(pixel, right))
+                            {
+                                SwapPixels(pixel, right);
+                                pixel = right;
+                            }
+                        }
+                        
+                        ApplyFrictionToPixel(pixel);
                     }
                 }
             }
@@ -604,6 +607,23 @@ function B8 CanPixelMoveTo(Pixel *src, Pixel *dest)
     return 0;
 }
 
+function void ApplyFrictionToPixel(Pixel *pixel)
+{
+    const F32 friction = FRICTION + ((F32)rand() / (F32)RAND_MAX / 5.0f);
+    
+    S32 sign = Sign(pixel->vel.x);
+    F32 sub = fabsf(pixel->vel.x) - friction;
+    
+    if ((S32)Sign(sub * sign) != sign)
+    {
+        pixel->vel.x = 0.0f;
+    }
+    else
+    {
+        pixel->vel.x = sub * sign;
+    }
+}
+
 function B8 AttemptFallPixel(Pixel *pixel, S32 x, S32 y)
 {
     // NOTE(randy): a solution to this max speed banding artifact would be to take the pixel's distance travelled across the frame and blue it in a line, like a fast moving object
@@ -617,7 +637,6 @@ function B8 AttemptFallPixel(Pixel *pixel, S32 x, S32 y)
     {
         if (!F32Compare(pixel->vel.y, 0.0f, 0.01f))
         {
-            
             // NOTE(randy): disperse Y -> X velocity
             {
                 S32 sign;

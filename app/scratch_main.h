@@ -54,6 +54,7 @@ function void ShuffleArray(S32 *array, size_t n);
 function B8 AttemptDisperseWater(Pixel *water_pixel, Vec2S32 from_loc, Vec2S32 to_loc);
 function B8 AttemptFallPixel(Pixel *pixel, S32 x, S32 y);
 function B8 CanPixelMoveTo(Pixel *src, Pixel *dest);
+function void ApplyFrictionToPixel(Pixel *pixel);
 
 // NOTE(randy): is there an existing TS function for this?
 // TODO(randy): if not, pull out into base_math
@@ -63,5 +64,10 @@ function B8 F32Compare(F32 a, F32 b, F32 epsilon)
 }
 // TODO(randy): same goes for this
 #define Sign(_x__) ((_x__ > 0) - (_x__ < 0))
+
+
+#define DRIP_SPEED 5
+#define FRICTION 0.1f
+
 
 #endif //SCRATCH_MAIN_H
