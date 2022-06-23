@@ -543,22 +543,25 @@ function void StepPixel(Pixel *pixel, S32 x, S32 y)
             
             // TODO(randy): check for L + R pixels and run the dislodge on them
             
+            B8 moved_this_frame = 0;
             
-            
-            // move sand in direction of velocity
-            // perform the falling sand calculation generically at all orientations
-            // if the sand is moving in the direction it wants to go
-            // but collides with another particle
-            // run the algo on it, can it go around?
-            
-            // nah this is me tryna solve provlems that don't exist yet.
-            
-            // what's right in front of me??
-            
-            
-            if (!AttemptFallPixel(pixel, x, y))
+            if (AttemptFallPixel(pixel, x, y))
             {
-                if (!pixel->is_stationary)
+                moved_this_frame = 1;
+                
+                // pixel->is_free_falling = 1;
+                // TODO(randy): THIS PIXEL IS NOT THE SAME PIXEL U DICK HEAD
+                // pointer gets swapped out
+                
+                // this entire thing is just a steaming pile of dog shit at this point
+                // I have no idea why I abstracted out the move down, that's just creating issues now
+                // Actually I do know, it's bc I wanted to apply it to water as well lol
+                
+                // TODO(randy): bring back in the function, abstract later u silly goose
+            }
+            else
+            {
+                if (pixel->is_free_falling)
                 {
                     B8 has_x_vel = !F32Compare(pixel->vel.x, 0.0f, 0.01f);
                     B8 check_left_first;
@@ -578,6 +581,7 @@ function void StepPixel(Pixel *pixel, S32 x, S32 y)
                             CanPixelMoveTo(pixel, down_left))
                         {
                             SwapPixels(pixel, down_left);
+                            moved_this_frame = 1;
                             return;
                         }
                         
@@ -585,6 +589,7 @@ function void StepPixel(Pixel *pixel, S32 x, S32 y)
                             CanPixelMoveTo(pixel, down_right))
                         {
                             SwapPixels(pixel, down_right);
+                            moved_this_frame = 1;
                             return;
                         }
                         
@@ -593,6 +598,7 @@ function void StepPixel(Pixel *pixel, S32 x, S32 y)
                             CanPixelMoveTo(pixel, down_left))
                         {
                             SwapPixels(pixel, down_left);
+                            moved_this_frame = 1;
                             return;
                         }
                     }
@@ -606,6 +612,7 @@ function void StepPixel(Pixel *pixel, S32 x, S32 y)
                             {
                                 SwapPixels(pixel, left);
                                 pixel = left;
+                                moved_this_frame = 1;
                             }
                         }
                         else if (pixel->vel.x > 0.0f)
@@ -614,15 +621,40 @@ function void StepPixel(Pixel *pixel, S32 x, S32 y)
                             {
                                 SwapPixels(pixel, right);
                                 pixel = right;
+                                moved_this_frame = 1;
                             }
                         }
                         
                         ApplyFrictionToPixel(pixel);
                     }
-                    else
-                    {
-                        pixel->is_stationary = 1;
-                    }
+                }
+            }
+            
+            
+            // did it change positions between this frame and last frame?
+            // (basically a did_pixel_move)
+            
+            // check adjacent neighbours if did_pixel_move 
+            // adjacent?
+            // like every surrounding one?
+            
+            // TODO(randy): THIS MIGHT BE A DODGY POINTER BC OF PREVIOUS SWAP
+            pixel->is_free_falling = moved_this_frame;
+            if (pixel->is_free_falling)
+            {
+                Pixel *above = PixelAt(x, y+1);
+                Pixel *below = PixelAt(x, y-1);
+                Pixel *left = PixelAt(x-1, y);
+                Pixel *right = PixelAt(x+1, y);
+                
+                //if (rand() % DISLODGE_CHANCE == 0)
+                {
+                    /* 
+                                        above->is_stationary = 0;
+                                        below->is_stationary = 0;
+                                        left->is_stationary = 0;
+                                        right->is_stationary = 0;
+                     */
                 }
             }
         } break;
@@ -692,11 +724,18 @@ function void ApplyFrictionToPixel(Pixel *pixel)
     }
 }
 
+// TODO(randy):  YEET
 function B8 AttemptFallPixel(Pixel *pixel, S32 x, S32 y)
 {
     // NOTE(randy): a solution to this max speed banding artifact would be to take the pixel's distance travelled across the frame and blue it in a line, like a fast moving object
     
     // inertial resistance is the % chance a pixel will be dislodged (set to falling) by passing pixels
+    
+    
+    // this whole thing is a hot fuckin mess lmao
+    
+    // at what point do I want to check the stationary pixel?
+    // maybe just run it 
     
     
     // if there's a pixel below it, early out

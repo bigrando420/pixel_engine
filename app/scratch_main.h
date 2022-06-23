@@ -9,6 +9,7 @@
 #define SIM_X (S32)(WINDOW_X / PIXEL_SCALE)
 #define SIM_Y (S32)(WINDOW_Y / PIXEL_SCALE)
 
+// bye bye
 typedef enum PixelType
 {
     PIXEL_TYPE_boundary = -1,
@@ -18,12 +19,25 @@ typedef enum PixelType
     PIXEL_TYPE_MAX,
 } PixelType;
 
+// MetaDesk would make this easier
+/* 
+typedef U32 PixelFlags;
+enum
+{
+    PIXEL_FLAG_gravity =             (1<<0);
+    PIXEL_FLAG_move_diagonal =       (1<<1);
+    PIXEL_FLAG_transfer_sideways =   (1<<2);
+    PIXEL_FLAG_has_friction =        (1<<3);
+};
+ */
+
 typedef struct Pixel
 {
     PixelType type;
+    //PixelFlags flags;
     Vec2F32 vel;
     
-    B8 is_stationary;
+    B8 is_free_falling;
 } Pixel;
 
 typedef struct S_State S_State;
@@ -60,7 +74,8 @@ function Vec4U8 *ColourAt(S32 x, S32 y);
 //~ NOTE(randy): Prototype controls
 #define FRICTION 0.1f
 #define BRUSH_SIZE 8
-#define DRIP 1
+#define DRIP 0
 #define DRIP_SPEED 1
+#define DISLODGE_CHANCE 1
 
 #endif //SCRATCH_MAIN_H
