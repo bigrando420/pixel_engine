@@ -45,6 +45,10 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
     }
     if (OS_KeyPress(events, window->handle, OS_Key_3, 0))
     {
+        selected_type = PIXEL_TYPE_air;
+    }
+    if (OS_KeyPress(events, window->handle, OS_Key_4, 0))
+    {
         selected_type = PIXEL_TYPE_platform;
     }
     if (OS_KeyPress(events, window->handle, OS_Key_0, 0))
@@ -104,7 +108,7 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
     if (drip_override &&
         update_count % DRIP_SPEED == 0)
     {
-        top_middle_px->type = PIXEL_TYPE_sand;
+        top_middle_px->flags = PIXEL_TYPE_sand;
     }
 #endif
     
@@ -551,6 +555,7 @@ function void StepPixel(Pixel *pixel, S32 x, S32 y)
     
     //~ Move diagonally
     if (!has_moved &&
+        pixel->is_falling &&
         (pixel->flags & PIXEL_FLAG_move_diagonal))
     {
         B8 has_x_vel = !F32Compare(pixel->vel.x, 0.0f, 0.01f);
@@ -593,6 +598,7 @@ function void StepPixel(Pixel *pixel, S32 x, S32 y)
     
     //~ Move sideways
     if (!has_moved &&
+        pixel->is_falling &&
         !F32Compare(pixel->vel.x, 0.0f, 0.01f) &&
         (pixel->flags & PIXEL_FLAG_transfer_sideways))
     {
@@ -652,7 +658,30 @@ function void StepPixel(Pixel *pixel, S32 x, S32 y)
         }
     }
     
+    pixel->is_falling = has_moved;
+    
     // TODO(randy): free falling / fake intertia
+    //~ Inertia
+    if (pixel->is_falling &&
+        (pixel->flags & PIXEL_FLAG_inertia))
+    {
+        Pixel *left = PixelAt(x-1, y);
+        Pixel *right = PixelAt(x+1, y);
+        Pixel *down_left = PixelAt(x-1, y-1);
+        Pixel *down_right = PixelAt(x+1, y-1);
+        Pixel *top_left = PixelAt(x-1, y+1);
+        Pixel *top_right = PixelAt(x+1, y+1);
+        
+        if (rand() % DISLODGE_CHANCE == 0)
+        {
+            left->is_falling = 1;
+            right->is_falling = 1;
+            down_left->is_falling = 1;
+            down_right->is_falling = 1;
+            top_left->is_falling = 1;
+            top_right->is_falling = 1;
+        }
+    }
 }
 
 function B8 CanPixelMoveTo(Pixel *src, Pixel *dest)

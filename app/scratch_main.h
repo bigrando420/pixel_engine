@@ -21,6 +21,7 @@ enum
     PIXEL_FLAG_immovable =           (1<<4),
     PIXEL_FLAG_fast_disperse  =      (1<<5),
     PIXEL_FLAG_air_lol  =      (1<<6),
+    PIXEL_FLAG_inertia  =      (1<<7),
 };
 // NOTE(randy): these are pretty poorly defined at the moment, but no matter :)
 
@@ -34,7 +35,8 @@ typedef enum PixelType
     PIXEL_TYPE_sand = (PIXEL_FLAG_gravity |
                        PIXEL_FLAG_move_diagonal |
                        PIXEL_FLAG_transfer_sideways |
-                       PIXEL_FLAG_has_friction),
+                       PIXEL_FLAG_has_friction |
+                       PIXEL_FLAG_inertia),
     PIXEL_TYPE_water = (PIXEL_FLAG_gravity |
                         PIXEL_FLAG_move_diagonal |
                         PIXEL_FLAG_transfer_sideways | // experiment
@@ -52,7 +54,7 @@ typedef struct Pixel
     PixelFlags flags;
     Vec2F32 vel;
     
-    //B8 is_free_falling;
+    B8 is_falling;
 } Pixel;
 
 typedef struct S_State S_State;
@@ -90,8 +92,8 @@ function void SetPixelType(Pixel *pixel, PixelType type);
 //~ NOTE(randy): Prototype controls
 #define FRICTION 0.1f
 #define BRUSH_SIZE 8
-#define DRIP 0
+#define DRIP 1
 #define DRIP_SPEED 1
-#define DISLODGE_CHANCE 1
+#define DISLODGE_CHANCE 2
 
 #endif //SCRATCH_MAIN_H
