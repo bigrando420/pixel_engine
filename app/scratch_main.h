@@ -9,35 +9,49 @@
 #define SIM_X (S32)(WINDOW_X / PIXEL_SCALE)
 #define SIM_Y (S32)(WINDOW_Y / PIXEL_SCALE)
 
-// bye bye
+// MetaDesk would make this easier
+// pattern taken from https://ryanfleury.substack.com/p/ui-part-3-the-widget-building-language
+typedef U32 PixelFlags;
+enum
+{
+    PIXEL_FLAG_gravity =             (1<<0),
+    PIXEL_FLAG_move_diagonal =       (1<<1),
+    PIXEL_FLAG_transfer_sideways =   (1<<2),
+    PIXEL_FLAG_has_friction =        (1<<3),
+    PIXEL_FLAG_immovable =           (1<<4),
+    PIXEL_FLAG_fast_disperse  =      (1<<5),
+};
+
+// TODO(randy): what if two types share the same features?
+// I guess we'll just throw an error then, because it's impossible to derive
 typedef enum PixelType
 {
     PIXEL_TYPE_boundary = -1,
     PIXEL_TYPE_air = 0,
-    PIXEL_TYPE_sand,
-    PIXEL_TYPE_water,
+    PIXEL_TYPE_sand = (PIXEL_FLAG_gravity |
+                       PIXEL_FLAG_move_diagonal |
+                       PIXEL_FLAG_transfer_sideways |
+                       PIXEL_FLAG_has_friction),
+    PIXEL_TYPE_water = (PIXEL_FLAG_gravity |
+                        PIXEL_FLAG_move_diagonal |
+                        PIXEL_FLAG_transfer_sideways |
+                        PIXEL_FLAG_fast_disperse),
     PIXEL_TYPE_MAX,
 } PixelType;
+// NOTE(randy): this is so fucking cool. Instead of me having to implement the logic for each new pixel I literally just define the flags I want to to have and that logic can be reused.
+// WOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOT
 
-// MetaDesk would make this easier
-/* 
-typedef U32 PixelFlags;
-enum
-{
-    PIXEL_FLAG_gravity =             (1<<0);
-    PIXEL_FLAG_move_diagonal =       (1<<1);
-    PIXEL_FLAG_transfer_sideways =   (1<<2);
-    PIXEL_FLAG_has_friction =        (1<<3);
-};
- */
+
+// how am I going to derive a type now?
+// just masked against a certain field?
+// a type is implicit in the set flags
 
 typedef struct Pixel
 {
-    PixelType type;
-    //PixelFlags flags;
+    PixelFlags flags;
     Vec2F32 vel;
     
-    B8 is_free_falling;
+    //B8 is_free_falling;
 } Pixel;
 
 typedef struct S_State S_State;
@@ -70,6 +84,8 @@ function B8 CanPixelMoveTo(Pixel *src, Pixel *dest);
 function void ApplyFrictionToPixel(Pixel *pixel);
 function Vec4U8 *ColourAt(S32 x, S32 y);
 
+function PixelType GetPixelType(Pixel *pixel);
+function void SetPixelType(Pixel *pixel, PixelType type);
 
 //~ NOTE(randy): Prototype controls
 #define FRICTION 0.1f

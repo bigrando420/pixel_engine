@@ -34,14 +34,14 @@ S_Close(APP_Window *window, S_State *state)
 function void
 S_Update(APP_Window *window, OS_EventList *events, S_State *state)
 {
-    local_persist PixelType selected_type = 1;
+    local_persist PixelType selected_type = PIXEL_TYPE_sand;
     if (OS_KeyPress(events, window->handle, OS_Key_1, 0))
     {
-        selected_type = 1;
+        selected_type = PIXEL_TYPE_sand;
     }
     if (OS_KeyPress(events, window->handle, OS_Key_2, 0))
     {
-        selected_type = 2;
+        selected_type = PIXEL_TYPE_water;
     }
     if (OS_KeyPress(events, window->handle, OS_Key_3, 0))
     {
@@ -57,7 +57,7 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
 #if BRUSH_SIZE == 1
         Vec2S32 mouse = GetPixelAtMousePos(window);
         Pixel *pixel = PixelAt(mouse.x, mouse.y);
-        pixel->type = selected_type;
+        //pixel->type = selected_type;
 #else
         S32 size = BRUSH_SIZE;
         for (int y = size / -2; y < size / 2; y++)
@@ -65,7 +65,7 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
         {
             Vec2S32 mouse = GetPixelAtMousePos(window);
             Pixel *pixel = PixelAt(mouse.x + x, mouse.y + y);
-            pixel->type = selected_type;
+            SetPixelType(pixel, selected_type);
         }
 #endif
     }
@@ -257,14 +257,15 @@ APP_EntryPoint(void)
     C_Quit();
 }
 
-Pixel boundary_pixel = {PIXEL_TYPE_boundary}; // lol
 function Pixel *PixelAt(S32 x, S32 y)
 {
-    if (x < 0 || x >= SIM_X ||
-        y < 0 || y >= SIM_Y)
-        return &boundary_pixel;
+    if (x < 0)
+        x = SIM_X - x;
+    if (y < 0)
+        y = SIM_Y - y;
+    // TODO(randy): probs bugged
     
-    return &state->pixels[y][x];
+    return &state->pixels[y % SIM_Y][x % SIM_X];
 }
 
 function Vec4U8 *ColourAt(S32 x, S32 y)
@@ -289,7 +290,7 @@ function void FillPixelDataRandomly()
         for (int x = 0; x < SIM_X; x++)
     {
         Pixel *pixel = &state->pixels[y][x];
-        pixel->type = (PixelType)(rand() % 3);
+        //pixel->type = (PixelType)(rand() % 3);
     }
 }
 
@@ -299,8 +300,9 @@ function void UpdatePixelRenderData()
         for (int x = 0; x < SIM_X; x++)
     {
         Vec4U8 *col = &state->pixel_render_data[y][x];
+        Pixel *px = &state->pixels[SIM_Y-y-1][x];
         
-        switch (state->pixels[SIM_Y-y-1][x].type)
+        switch (GetPixelType(px))
         {
             case PIXEL_TYPE_boundary:
             {
@@ -333,60 +335,15 @@ function void UpdatePixelRenderData()
                 col->b = 244;
                 col->a = 255;
             } break;
+            
+            default:
+            {
+                col->r = 255;
+                col->g = 0;
+                col->b = 0;
+                col->a = 255;
+            } break;
         }
-        
-        /* 
-                U8 *pixel_chnl = state->pixel_render_data + (y*SIM_X + x) * 4;
-                
-                switch (state->pixels[SIM_Y-y-1][x].type)
-                {
-                    //lmao
-                    // TODO(randy): add in V4U8 type
-                    case PIXEL_TYPE_boundary:
-                    {
-                        *pixel_chnl = 145;
-                        pixel_chnl++;
-                        *pixel_chnl = 139;
-                        pixel_chnl++;
-                        *pixel_chnl = 134;
-                        pixel_chnl++;
-                        *pixel_chnl = 255;
-                    } break;
-                    
-                    case PIXEL_TYPE_air:
-                    {
-                        *pixel_chnl = 180;
-                        pixel_chnl++;
-                        *pixel_chnl = 203;
-                        pixel_chnl++;
-                        *pixel_chnl = 240;
-                        pixel_chnl++;
-                        *pixel_chnl = 255;
-                    } break;
-                    
-                    case PIXEL_TYPE_sand:
-                    {
-                        *pixel_chnl = 242;
-                        pixel_chnl++;
-                        *pixel_chnl = 216;
-                        pixel_chnl++;
-                        *pixel_chnl = 145;
-                        pixel_chnl++;
-                        *pixel_chnl = 255;
-                    } break;
-                    
-                    case PIXEL_TYPE_water:
-                    {
-                        *pixel_chnl = 74;
-                        pixel_chnl++;
-                        *pixel_chnl = 147;
-                        pixel_chnl++;
-                        *pixel_chnl = 244;
-                        pixel_chnl++;
-                        *pixel_chnl = 255;
-                    } break;
-                }
-         */
     }
 }
 
@@ -407,21 +364,6 @@ function void StepPixelSimulation()
             Pixel *pixel = &state->pixels[y][x_pos];
             StepPixel(pixel, x_pos, y);
         }
-        
-        
-        // TODO(randy): 
-        // ooo, maybe instead of flipping it, process the entire row randomly lol
-        // that might give better results?
-        /* 
-                B8 flip_row = (rand() % 2 == 0); // NOTE(randy): randomises row order
-                for (int x = (flip_row ? 0 : SIM_X-1);
-                     (flip_row ? x < SIM_X : x >= 0);
-                     (flip_row ? x++ : x--))
-                {
-                    Pixel *pixel = &state->pixels[y][x];
-                    StepPixel(pixel);
-                }
-         */
     }
 }
 
@@ -519,7 +461,9 @@ function void SetDefaultStage()
     {
         if (x >= SIM_X / 10 && x <= SIM_X - SIM_X / 10 &&
             y >= 20 && y <= 30)
-            PixelAt(x, y)->type = PIXEL_TYPE_boundary;
+        {
+            // TODO(randy): set immovable
+        }
     }
 }
 
@@ -531,178 +475,24 @@ function void StepPixel(Pixel *pixel, S32 x, S32 y)
     Pixel *down_left = PixelAt(x-1, y-1);
     Pixel *down_right = PixelAt(x+1, y-1);
     
-    switch (pixel->type)
+    if (pixel->flags & PIXEL_FLAG_gravity) // this should work right? it'll be non-zero
     {
-        case PIXEL_TYPE_sand:
-        {
-            // velocity on the Y just determines how many falling sand updates it does
-            
-            // NOTE(randy): fake inertia - if it's not free falling, then don't check whether it can move diagonally left or right. (actually could base this off of the X velocity lol)
-            // make adjacent passing elements have a % chance of shedding some of their vertical velocity into horizontal?
-            
-            
-            // TODO(randy): check for L + R pixels and run the dislodge on them
-            
-            B8 moved_this_frame = 0;
-            
-            if (AttemptFallPixel(pixel, x, y))
-            {
-                moved_this_frame = 1;
-                
-                // pixel->is_free_falling = 1;
-                // TODO(randy): THIS PIXEL IS NOT THE SAME PIXEL U DICK HEAD
-                // pointer gets swapped out
-                
-                // this entire thing is just a steaming pile of dog shit at this point
-                // I have no idea why I abstracted out the move down, that's just creating issues now
-                // Actually I do know, it's bc I wanted to apply it to water as well lol
-                
-                // TODO(randy): bring back in the function, abstract later u silly goose
-            }
-            else
-            {
-                if (pixel->is_free_falling)
-                {
-                    B8 has_x_vel = !F32Compare(pixel->vel.x, 0.0f, 0.01f);
-                    B8 check_left_first;
-                    if (has_x_vel)
-                    {
-                        check_left_first = Sign(pixel->vel.x) == -1;
-                    }
-                    else
-                    {
-                        check_left_first = rand() % 2 == 0;
-                    }
-                    
-                    // Attempt move diagonally
-                    {
-                        if (check_left_first &&
-                            CanPixelMoveTo(pixel, left) &&
-                            CanPixelMoveTo(pixel, down_left))
-                        {
-                            SwapPixels(pixel, down_left);
-                            moved_this_frame = 1;
-                            return;
-                        }
-                        
-                        if (CanPixelMoveTo(pixel, right) &&
-                            CanPixelMoveTo(pixel, down_right))
-                        {
-                            SwapPixels(pixel, down_right);
-                            moved_this_frame = 1;
-                            return;
-                        }
-                        
-                        if (!check_left_first &&
-                            CanPixelMoveTo(pixel, left) &&
-                            CanPixelMoveTo(pixel, down_left))
-                        {
-                            SwapPixels(pixel, down_left);
-                            moved_this_frame = 1;
-                            return;
-                        }
-                    }
-                    
-                    // NOTE(randy): attempt move sideways based off of X velocity
-                    if (has_x_vel)
-                    {
-                        if (pixel->vel.x < 0.0f)
-                        {
-                            if (CanPixelMoveTo(pixel, left))
-                            {
-                                SwapPixels(pixel, left);
-                                pixel = left;
-                                moved_this_frame = 1;
-                            }
-                        }
-                        else if (pixel->vel.x > 0.0f)
-                        {
-                            if (CanPixelMoveTo(pixel, right))
-                            {
-                                SwapPixels(pixel, right);
-                                pixel = right;
-                                moved_this_frame = 1;
-                            }
-                        }
-                        
-                        ApplyFrictionToPixel(pixel);
-                    }
-                }
-            }
-            
-            
-            // did it change positions between this frame and last frame?
-            // (basically a did_pixel_move)
-            
-            // check adjacent neighbours if did_pixel_move 
-            // adjacent?
-            // like every surrounding one?
-            
-            // TODO(randy): THIS MIGHT BE A DODGY POINTER BC OF PREVIOUS SWAP
-            pixel->is_free_falling = moved_this_frame;
-            if (pixel->is_free_falling)
-            {
-                Pixel *above = PixelAt(x, y+1);
-                Pixel *below = PixelAt(x, y-1);
-                Pixel *left = PixelAt(x-1, y);
-                Pixel *right = PixelAt(x+1, y);
-                
-                //if (rand() % DISLODGE_CHANCE == 0)
-                {
-                    /* 
-                                        above->is_stationary = 0;
-                                        below->is_stationary = 0;
-                                        left->is_stationary = 0;
-                                        right->is_stationary = 0;
-                     */
-                }
-            }
-        } break;
         
-        case PIXEL_TYPE_water:
-        {
-            /* 
-                        if (CanPixelMoveTo(pixel, down))
-                            SwapPixels(pixel, down);
-                        else
-             */
-            if (!AttemptFallPixel(pixel, x, y))
-            {
-                B8 flip = rand() % 2 == 0;
-                
-                if (CanPixelMoveTo(pixel, down_left))
-                    SwapPixels(pixel, down_left);
-                else if (CanPixelMoveTo(pixel, down_right))
-                    SwapPixels(pixel, down_right);
-                else
-                {
-                    // disperse
-                    U8 dispersion_rate = 5 + (rand() % 2 == 0 ? -1 : 1) * (rand() % 2);
-                    
-                    if (!AttemptDisperseWater(pixel,
-                                              V2S32(x, y),
-                                              V2S32(x + dispersion_rate * (flip ? -1 : 1), y)))
-                    {
-                        AttemptDisperseWater(pixel,
-                                             V2S32(x, y),
-                                             V2S32(x + dispersion_rate * (flip ? 1 : -1), y));
-                    }
-                }
-            }
-        } break;
     }
 }
 
 function B8 CanPixelMoveTo(Pixel *src, Pixel *dest)
 {
-    switch (src->type)
-    {
-        case PIXEL_TYPE_sand:
-        return (dest->type == PIXEL_TYPE_air || dest->type == PIXEL_TYPE_water);
-        
-        case PIXEL_TYPE_water:
-        return (dest->type == PIXEL_TYPE_air);
-    }
+    /* 
+        switch (src->type)
+        {
+            case PIXEL_TYPE_sand:
+            return (dest->type == PIXEL_TYPE_air || dest->type == PIXEL_TYPE_water);
+            
+            case PIXEL_TYPE_water:
+            return (dest->type == PIXEL_TYPE_air);
+        }
+     */
     
     return 0;
 }
@@ -804,33 +594,37 @@ function B8 AttemptFallPixel(Pixel *pixel, S32 x, S32 y)
 
 function B8 AttemptDisperseWater(Pixel *water_pixel, Vec2S32 from_loc, Vec2S32 to_loc)
 {
-    Vec2S32 inter_pixels[16];
-    U32 count = 0;
-    DrawLineAtoB(from_loc, to_loc, inter_pixels, &count, 16);
-    
-    Pixel *last_good_pixel = 0;
-    for (int i = 1; i < count; i++)
-    {
-        Vec2S32 pos = inter_pixels[i];
-        Pixel *inter_pixel = PixelAt(pos.x, pos.y);
-        if (inter_pixel->type != PIXEL_TYPE_water &&
-            inter_pixel->type != PIXEL_TYPE_air)
-            break;
-        else if (inter_pixel->type == PIXEL_TYPE_air)
-            last_good_pixel = inter_pixel;
-        // NOTE(randy): algo will pass through water
-    }
-    
-    if (last_good_pixel)
-    {
-        SwapPixels(water_pixel, last_good_pixel);
+    /* 
+        Vec2S32 inter_pixels[16];
+        U32 count = 0;
+        DrawLineAtoB(from_loc, to_loc, inter_pixels, &count, 16);
         
-        return 1;
-    }
-    else
-    {
-        return 0;
-    }
+        Pixel *last_good_pixel = 0;
+        for (int i = 1; i < count; i++)
+        {
+            Vec2S32 pos = inter_pixels[i];
+            Pixel *inter_pixel = PixelAt(pos.x, pos.y);
+            if (inter_pixel->type != PIXEL_TYPE_water &&
+                inter_pixel->type != PIXEL_TYPE_air)
+                break;
+            else if (inter_pixel->type == PIXEL_TYPE_air)
+                last_good_pixel = inter_pixel;
+            // NOTE(randy): algo will pass through water
+        }
+        
+        if (last_good_pixel)
+        {
+            SwapPixels(water_pixel, last_good_pixel);
+            
+            return 1;
+        }
+        else
+        {
+            return 0;
+        }
+         */
+    
+    return 0;
 }
 
 // NOTE(randy): taken from https://stackoverflow.com/questions/6127503/shuffle-array-in-c
@@ -847,4 +641,14 @@ function void ShuffleArray(int *array, size_t n)
             array[i] = t;
         }
     }
+}
+
+function PixelType GetPixelType(Pixel *pixel)
+{
+    return pixel->flags;
+}
+
+function void SetPixelType(Pixel *pixel, PixelType type)
+{
+    pixel->flags = type;
 }
