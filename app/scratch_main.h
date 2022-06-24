@@ -10,7 +10,7 @@
 #define SIM_Y (S32)(WINDOW_Y / PIXEL_SCALE)
 
 // MetaDesk would make this easier
-// pattern taken from https://ryanfleury.substack.com/p/ui-part-3-the-widget-building-language
+// Combinatorics pattern taken from https://ryanfleury.substack.com/p/ui-part-3-the-widget-building-language
 typedef U32 PixelFlags;
 enum
 {
@@ -20,31 +20,32 @@ enum
     PIXEL_FLAG_has_friction =        (1<<3),
     PIXEL_FLAG_immovable =           (1<<4),
     PIXEL_FLAG_fast_disperse  =      (1<<5),
+    PIXEL_FLAG_air_lol  =      (1<<6),
 };
+// NOTE(randy): these are pretty poorly defined at the moment, but no matter :)
+
 
 // TODO(randy): what if two types share the same features?
 // I guess we'll just throw an error then, because it's impossible to derive
 typedef enum PixelType
 {
-    PIXEL_TYPE_boundary = -1,
-    PIXEL_TYPE_air = 0,
+    PIXEL_TYPE_undefined = 0,
+    PIXEL_TYPE_air = PIXEL_FLAG_air_lol,
     PIXEL_TYPE_sand = (PIXEL_FLAG_gravity |
                        PIXEL_FLAG_move_diagonal |
                        PIXEL_FLAG_transfer_sideways |
                        PIXEL_FLAG_has_friction),
     PIXEL_TYPE_water = (PIXEL_FLAG_gravity |
                         PIXEL_FLAG_move_diagonal |
-                        PIXEL_FLAG_transfer_sideways |
+                        PIXEL_FLAG_transfer_sideways | // experiment
                         PIXEL_FLAG_fast_disperse),
+    PIXEL_TYPE_platform = (PIXEL_FLAG_immovable),
     PIXEL_TYPE_MAX,
 } PixelType;
 // NOTE(randy): this is so fucking cool. Instead of me having to implement the logic for each new pixel I literally just define the flags I want to to have and that logic can be reused.
 // WOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOT
 
 
-// how am I going to derive a type now?
-// just masked against a certain field?
-// a type is implicit in the set flags
 
 typedef struct Pixel
 {
@@ -69,7 +70,7 @@ S_State *state;
 
 function void StepPixelSimulation();
 function Pixel *PixelAt(S32 x, S32 y);
-function void SwapPixels(Pixel *from, Pixel *to);
+function void SwapPixels(Pixel *from, Pixel *to, Pixel **from_pointer);
 function void FillPixelDataRandomly();
 function void UpdatePixelRenderData();
 function void DrawLineAtoB(Vec2S32 a, Vec2S32 b, Vec2S32* dest_arr, U32* count, U32 max_count);
@@ -79,7 +80,6 @@ function void SetDefaultStage();
 function void StepPixel(Pixel *pixel, S32 x, S32 y); // TODO(randy): make location implicit (it already is but I'm too lazy to derive it lol)
 function void ShuffleArray(S32 *array, size_t n);
 function B8 AttemptDisperseWater(Pixel *water_pixel, Vec2S32 from_loc, Vec2S32 to_loc);
-function B8 AttemptFallPixel(Pixel *pixel, S32 x, S32 y);
 function B8 CanPixelMoveTo(Pixel *src, Pixel *dest);
 function void ApplyFrictionToPixel(Pixel *pixel);
 function Vec4U8 *ColourAt(S32 x, S32 y);

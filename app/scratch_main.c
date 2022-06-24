@@ -45,11 +45,11 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
     }
     if (OS_KeyPress(events, window->handle, OS_Key_3, 0))
     {
-        selected_type = 0;
+        selected_type = PIXEL_TYPE_platform;
     }
     if (OS_KeyPress(events, window->handle, OS_Key_0, 0))
     {
-        selected_type = -1;
+        selected_type = 0;
     }
     
     if (OS_KeyPress(events, window->handle, OS_Key_MouseLeft, 0))
@@ -126,6 +126,7 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
         UpdatePixelRenderData();
         
         // NOTE(randy): Brush preview
+        // TODO(randy): just render the outline instead of full square
         {
             S32 size = BRUSH_SIZE;
             for (int y = size / -2; y < size / 2; y++)
@@ -135,9 +136,9 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
                 Vec4U8 *col = ColourAt(mouse.x + x, SIM_Y-mouse.y + y);
                 if (col)
                 {
-                    col->r = 255;
-                    col->g = 255;
-                    col->b = 255;
+                    col->r = 230;
+                    col->g = 230;
+                    col->b = 230;
                     col->a = 255;
                 }
             }
@@ -152,7 +153,7 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
         DR_Sprite(&bucket,
                   V4F32(1.0f, 1.0f, 1.0f, 1.0f),
                   R2F32(V2F32(0.0f, 0.0f),
-                        V2F32(WINDOW_X - 20, WINDOW_Y - 55)), // TODO(randy): why isn't this sized properly? Texture overhangs off screen without these subtractions. Window border perhaps?
+                        V2F32(WINDOW_X - 20, WINDOW_Y - 55)), // NOTE(randy): why isn't this sized properly? Texture overhangs off screen without these subtractions. Window border perhaps?
                   R2F32(V2F32(0.0f, 0.0f),
                         V2F32(SIM_X, SIM_Y)),
                   texture);
@@ -257,13 +258,13 @@ APP_EntryPoint(void)
     C_Quit();
 }
 
+// TODO(randy): maybe make the pixel getting based off of a local pixel?
+Pixel boundary_pixel = {PIXEL_TYPE_platform}; // lol
 function Pixel *PixelAt(S32 x, S32 y)
 {
-    if (x < 0)
-        x = SIM_X - x;
-    if (y < 0)
-        y = SIM_Y - y;
-    // TODO(randy): probs bugged
+    if (x < 0 || x >= SIM_X ||
+        y < 0 || y >= SIM_Y)
+        return &boundary_pixel;
     
     return &state->pixels[y % SIM_Y][x % SIM_X];
 }
@@ -277,11 +278,13 @@ function Vec4U8 *ColourAt(S32 x, S32 y)
     return &state->pixel_render_data[y][x];
 }
 
-function void SwapPixels(Pixel *from, Pixel *to)
+function void SwapPixels(Pixel *from, Pixel *to, Pixel **from_pointer)
 {
     Pixel t = *to;
     *to = *from;
     *from = t;
+    
+    *from_pointer = to;
 }
 
 function void FillPixelDataRandomly()
@@ -304,7 +307,7 @@ function void UpdatePixelRenderData()
         
         switch (GetPixelType(px))
         {
-            case PIXEL_TYPE_boundary:
+            case PIXEL_TYPE_platform:
             {
                 col->r = 145;
                 col->g = 139;
@@ -336,6 +339,7 @@ function void UpdatePixelRenderData()
                 col->a = 255;
             } break;
             
+            case PIXEL_TYPE_undefined:
             default:
             {
                 col->r = 255;
@@ -462,37 +466,206 @@ function void SetDefaultStage()
         if (x >= SIM_X / 10 && x <= SIM_X - SIM_X / 10 &&
             y >= 20 && y <= 30)
         {
-            // TODO(randy): set immovable
+            SetPixelType(PixelAt(x, y), PIXEL_TYPE_platform);
+        }
+        else
+        {
+            SetPixelType(PixelAt(x, y), PIXEL_TYPE_air);
         }
     }
 }
 
 function void StepPixel(Pixel *pixel, S32 x, S32 y)
 {
-    Pixel *down = PixelAt(x, y-1);
-    Pixel *left = PixelAt(x-1, y);
-    Pixel *right = PixelAt(x+1, y);
-    Pixel *down_left = PixelAt(x-1, y-1);
-    Pixel *down_right = PixelAt(x+1, y-1);
+    /* 
+        Pixel *left = PixelAt(x-1, y);
+        Pixel *right = PixelAt(x+1, y);
+        Pixel *down_left = PixelAt(x-1, y-1);
+        Pixel *down_right = PixelAt(x+1, y-1);
+     */
     
-    if (pixel->flags & PIXEL_FLAG_gravity) // this should work right? it'll be non-zero
+    B8 has_moved = 0;
+    
+    //~ Gravity
+    if (pixel->flags & PIXEL_FLAG_gravity)
     {
-        
+        if (CanPixelMoveTo(pixel, PixelAt(x, y-1)))
+        {
+            const F32 gravity = 0.4f;
+            pixel->vel.y -= gravity;
+            
+            const max_speed = 10.0f;
+            pixel->vel.y = Min(pixel->vel.y, max_speed);
+            
+            Vec2S32 from_loc = V2S32(x, y);
+            Vec2S32 to_loc = V2S32(x, y - 1 + pixel->vel.y);
+            
+            Vec2S32 inter_pixels[16];
+            U32 count = 0;
+            DrawLineAtoB(from_loc, to_loc, inter_pixels, &count, 16);
+            
+            Pixel *last_good_pixel = 0;
+            for (int i = 1; i < count; i++)
+            {
+                Vec2S32 pos = inter_pixels[i];
+                Pixel *inter_pixel = PixelAt(pos.x, pos.y);
+                
+                if (CanPixelMoveTo(pixel, inter_pixel))
+                {
+                    last_good_pixel = inter_pixel;
+                }
+                else
+                {
+                    break;
+                }
+            }
+            
+            if (last_good_pixel)
+            {
+                SwapPixels(pixel, last_good_pixel, &pixel);
+                has_moved = 1;
+            }
+        }
+        else
+        {
+            // can't move down
+            // transfer velocity?
+            // TODO(randy): break this out into separate flags? transfer || move_sideways
+            if ((pixel->flags & PIXEL_FLAG_transfer_sideways) &&
+                !F32Compare(pixel->vel.y, 0.0f, 0.01f))
+            {
+                S32 sign;
+                if (!F32Compare(pixel->vel.x, 0.0f, 0.01f))
+                    sign = Sign(pixel->vel.x);
+                else
+                    sign = rand() % 2 ? -1 : 1;
+                
+                F32 div_amount = 3.0f;// + ((F32)rand() / (F32)RAND_MAX * 2);
+                
+                pixel->vel.x = fabsf(pixel->vel.x) + (fabsf(pixel->vel.y) / div_amount);
+                pixel->vel.x *= sign;
+                pixel->vel.y = 0.0f;
+            }
+        }
     }
+    
+    //~ Move diagonally
+    if (!has_moved &&
+        (pixel->flags & PIXEL_FLAG_move_diagonal))
+    {
+        B8 has_x_vel = !F32Compare(pixel->vel.x, 0.0f, 0.01f);
+        B8 check_left_first;
+        if (has_x_vel)
+        {
+            check_left_first = Sign(pixel->vel.x) == -1;
+        }
+        else
+        {
+            check_left_first = rand() % 2 == 0;
+        }
+        
+        Pixel *left = PixelAt(x-1, y);
+        Pixel *right = PixelAt(x+1, y);
+        Pixel *down_left = PixelAt(x-1, y-1);
+        Pixel *down_right = PixelAt(x+1, y-1);
+        
+        if (check_left_first &&
+            CanPixelMoveTo(pixel, left) &&
+            CanPixelMoveTo(pixel, down_left))
+        {
+            SwapPixels(pixel, down_left, &pixel);
+            has_moved = 1;
+        }
+        else if (CanPixelMoveTo(pixel, right) &&
+                 CanPixelMoveTo(pixel, down_right))
+        {
+            SwapPixels(pixel, down_right, &pixel);
+            has_moved = 1;
+        }
+        else if (!check_left_first &&
+                 CanPixelMoveTo(pixel, left) &&
+                 CanPixelMoveTo(pixel, down_left))
+        {
+            SwapPixels(pixel, down_left, &pixel);
+            has_moved = 1;
+        }
+    }
+    
+    //~ Move sideways
+    if (!has_moved &&
+        !F32Compare(pixel->vel.x, 0.0f, 0.01f) &&
+        (pixel->flags & PIXEL_FLAG_transfer_sideways))
+    {
+        Pixel *left = PixelAt(x-1, y);
+        Pixel *right = PixelAt(x+1, y);
+        
+        if (pixel->vel.x < 0.0f)
+        {
+            if (CanPixelMoveTo(pixel, left))
+            {
+                SwapPixels(pixel, left, &pixel);
+                has_moved = 1;
+            }
+        }
+        else if (pixel->vel.x > 0.0f)
+        {
+            if (CanPixelMoveTo(pixel, right))
+            {
+                SwapPixels(pixel, right, &pixel);
+                has_moved = 1;
+            }
+        }
+        
+        // NOTE(randy): should I have this as a flag?
+        ApplyFrictionToPixel(pixel);
+    }
+    
+    //~ fast disperse horizontally
+    if (!has_moved &&
+        (pixel->flags & PIXEL_FLAG_fast_disperse))
+    {
+        U8 dispersion_rate = 5 + (rand() % 2 == 0 ? -1 : 1) * (rand() % 2);
+        
+        Vec2S32 from_loc = V2S32(x, y);
+        Vec2S32 to_loc = V2S32(x + dispersion_rate * (rand() % 2 ? -1 : 1), y);
+        
+        Vec2S32 inter_pixels[16];
+        U32 count = 0;
+        DrawLineAtoB(from_loc, to_loc, inter_pixels, &count, 16);
+        
+        Pixel *last_good_pixel = 0;
+        for (int i = 1; i < count; i++)
+        {
+            Vec2S32 pos = inter_pixels[i];
+            Pixel *inter_pixel = PixelAt(pos.x, pos.y);
+            if (inter_pixel->flags != PIXEL_TYPE_water &&
+                inter_pixel->flags != PIXEL_TYPE_air)
+                break;
+            else if (inter_pixel->flags == PIXEL_TYPE_air)
+                last_good_pixel = inter_pixel;
+        }
+        
+        if (last_good_pixel)
+        {
+            SwapPixels(pixel, last_good_pixel, &pixel);
+            has_moved = 1;
+        }
+    }
+    
+    // TODO(randy): free falling / fake intertia
 }
 
 function B8 CanPixelMoveTo(Pixel *src, Pixel *dest)
 {
-    /* 
-        switch (src->type)
-        {
-            case PIXEL_TYPE_sand:
-            return (dest->type == PIXEL_TYPE_air || dest->type == PIXEL_TYPE_water);
-            
-            case PIXEL_TYPE_water:
-            return (dest->type == PIXEL_TYPE_air);
-        }
-     */
+    switch (GetPixelType(src))
+    {
+        case PIXEL_TYPE_sand:
+        return (GetPixelType(dest) == PIXEL_TYPE_air ||
+                GetPixelType(dest) == PIXEL_TYPE_water);
+        
+        case PIXEL_TYPE_water:
+        return (GetPixelType(dest) == PIXEL_TYPE_air);
+    }
     
     return 0;
 }
@@ -511,84 +684,6 @@ function void ApplyFrictionToPixel(Pixel *pixel)
     else
     {
         pixel->vel.x = sub * sign;
-    }
-}
-
-// TODO(randy):  YEET
-function B8 AttemptFallPixel(Pixel *pixel, S32 x, S32 y)
-{
-    // NOTE(randy): a solution to this max speed banding artifact would be to take the pixel's distance travelled across the frame and blue it in a line, like a fast moving object
-    
-    // inertial resistance is the % chance a pixel will be dislodged (set to falling) by passing pixels
-    
-    
-    // this whole thing is a hot fuckin mess lmao
-    
-    // at what point do I want to check the stationary pixel?
-    // maybe just run it 
-    
-    
-    // if there's a pixel below it, early out
-    if (!CanPixelMoveTo(pixel, PixelAt(x, y-1)))
-    {
-        if (!F32Compare(pixel->vel.y, 0.0f, 0.01f))
-        {
-            // NOTE(randy): disperse Y -> X velocity
-            {
-                S32 sign;
-                if (!F32Compare(pixel->vel.x, 0.0f, 0.01f))
-                    sign = Sign(pixel->vel.x);
-                else
-                    sign = rand() % 2 ? -1 : 1;
-                
-                F32 div_amount = 3.0f;// + (rand() / RAND_MAX * 2);
-                
-                pixel->vel.x = fabsf(pixel->vel.x) + (fabsf(pixel->vel.y) / div_amount);
-                pixel->vel.x *= sign;
-                pixel->vel.y = 0.0f;
-            }
-        }
-        
-        return 0;
-    }
-    
-    const F32 gravity = 0.4f;
-    pixel->vel.y -= gravity;
-    
-    const max_speed = 10.0f;
-    pixel->vel.y = Min(pixel->vel.y, max_speed);
-    
-    Vec2S32 from_loc = V2S32(x, y);
-    Vec2S32 to_loc = V2S32(x, y - 1 + pixel->vel.y);
-    
-    Vec2S32 inter_pixels[16];
-    U32 count = 0;
-    DrawLineAtoB(from_loc, to_loc, inter_pixels, &count, 16);
-    
-    Pixel *last_good_pixel = 0;
-    for (int i = 1; i < count; i++)
-    {
-        Vec2S32 pos = inter_pixels[i];
-        Pixel *inter_pixel = PixelAt(pos.x, pos.y);
-        
-        if (CanPixelMoveTo(pixel, inter_pixel))
-        {
-            last_good_pixel = inter_pixel;
-        }
-        else
-        {
-            break;
-        }
-    }
-    
-    if (last_good_pixel)
-    {
-        SwapPixels(pixel, last_good_pixel);
-        return 1;
-    }
-    else
-    {
-        return 0;
     }
 }
 
