@@ -74,6 +74,14 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
 #endif
     }
     
+    if (OS_KeyPress(events, window->handle, OS_Key_MouseRight, 0))
+    {
+        Vec2S32 mouse = GetPixelAtMousePos(window);
+        Pixel *pixel = PixelAt(mouse.x, mouse.y);
+        
+        state->selected_pixel = pixel->id;
+    }
+    
     if(OS_KeyPress(events, window->handle, OS_Key_A, 0))
     {
         state->is_simulating = !state->is_simulating;
@@ -129,7 +137,7 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
         
         UpdatePixelRenderData();
         
-        // NOTE(randy): Brush preview
+#if BRUSH_PREVIEW
         // TODO(randy): just render the outline instead of full square
         {
             S32 size = BRUSH_SIZE;
@@ -147,6 +155,7 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
                 }
             }
         }
+#endif
         
         dr_state->backend.FillTexture2D(dr_state->os_eqp,
                                         texture,
@@ -157,10 +166,20 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
         DR_Sprite(&bucket,
                   V4F32(1.0f, 1.0f, 1.0f, 1.0f),
                   R2F32(V2F32(0.0f, 0.0f),
-                        V2F32(WINDOW_X - 20, WINDOW_Y - 55)), // NOTE(randy): why isn't this sized properly? Texture overhangs off screen without these subtractions. Window border perhaps?
+                        V2F32(WINDOW_X, WINDOW_Y)),
                   R2F32(V2F32(0.0f, 0.0f),
                         V2F32(SIM_X, SIM_Y)),
                   texture);
+        
+        /* 
+                DR_Sprite(&bucket,
+                          V4F32(1.0f, 1.0f, 1.0f, 1.0f),
+                          R2F32(V2F32(0.0f, 0.0f),
+                                V2F32(WINDOW_X - 20, WINDOW_Y - 55)), // NOTE(randy): why isn't this sized properly? Texture overhangs off screen without these subtractions. Window border perhaps?
+                          R2F32(V2F32(0.0f, 0.0f),
+                                V2F32(SIM_X, SIM_Y)),
+                          texture);
+         */
     }
     
     
@@ -308,6 +327,15 @@ function void UpdatePixelRenderData()
     {
         Vec4U8 *col = &state->pixel_render_data[y][x];
         Pixel *px = &state->pixels[SIM_Y-y-1][x];
+        
+        if (px->id == state->selected_pixel)
+        {
+            col->r = 255;
+            col->g = 100;
+            col->b = 100;
+            col->a = 255;
+            continue;
+        }
         
         switch (GetPixelType(px))
         {
@@ -467,14 +495,17 @@ function void SetDefaultStage()
     for (int y = 0; y < SIM_Y; y++)
         for (int x = 0; x < SIM_X; x++)
     {
+        Pixel* px = PixelAt(x, y);
+        px->id = x + y * SIM_X + 1;
+        
         if (x >= SIM_X / 10 && x <= SIM_X - SIM_X / 10 &&
             y >= 20 && y <= 30)
         {
-            SetPixelType(PixelAt(x, y), PIXEL_TYPE_platform);
+            SetPixelType(px, PIXEL_TYPE_platform);
         }
         else
         {
-            SetPixelType(PixelAt(x, y), PIXEL_TYPE_air);
+            SetPixelType(px, PIXEL_TYPE_air);
         }
     }
 }
@@ -633,13 +664,11 @@ function void StepPixel(Pixel *pixel, S32 x, S32 y)
         }
         // else
         // flip velocity?
+        // nahhhhh she'll b rite
         
         // NOTE(randy): should I have this as a flag?
         ApplyFrictionToPixel(pixel);
     }
-    
-    
-    // TODO(randy): just make all movement based off of velocity
     
     
     //~ fast disperse horizontally
@@ -661,10 +690,6 @@ function void StepPixel(Pixel *pixel, S32 x, S32 y)
         Pixel *last_good_pixel = 0;
         for (int i = 1; i < count; i++)
         {
-            
-            // NOTE(randy): This down here is the only portion of the algo that isn't generic.
-            // It's specific to water because it passes through water without bothering to check it.
-            
             Vec2S32 pos = inter_pixels[i];
             Pixel *next_pixel = PixelAt(pos.x, pos.y);
             

@@ -56,6 +56,7 @@ typedef enum PixelType
 
 typedef struct Pixel
 {
+    U32 id;
     PixelFlags flags;
     Vec2F32 vel;
     //Vec2F32 sub_pos;
@@ -75,6 +76,9 @@ struct S_State
     Pixel pixels[SIM_Y][SIM_X];
     //U8 pixel_render_data[SIM_X * SIM_Y * 4];
     Vec4U8 pixel_render_data[SIM_Y][SIM_X];
+    
+    U32 selected_pixel;
+    // TODO(randy): can then derive pixel* by looping through each pixel
 };
 S_State *state;
 
@@ -98,9 +102,11 @@ function void SetPixelType(Pixel *pixel, PixelType type);
 
 //~ NOTE(randy): Prototype controls
 #define FRICTION 0.1f
-#define BRUSH_SIZE 8
+#define BRUSH_SIZE 1
 #define DRIP 0
 #define DRIP_SPEED 1
 #define DISLODGE_CHANCE 2
+
+#define BRUSH_PREVIEW 0
 
 #endif //SCRATCH_MAIN_H
