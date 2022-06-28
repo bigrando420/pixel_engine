@@ -61,7 +61,7 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
 #if BRUSH_SIZE == 1
         Vec2S32 mouse = GetPixelAtMousePos(window);
         Pixel *pixel = PixelAt(mouse.x, mouse.y);
-        //pixel->type = selected_type;
+        SetPixelType(pixel, selected_type);
 #else
         S32 size = BRUSH_SIZE;
         for (int y = size / -2; y < size / 2; y++)
@@ -536,7 +536,8 @@ function void StepPixel(Pixel *pixel, S32 x, S32 y)
             // transfer velocity?
             // TODO(randy): break this out into separate flags? transfer || move_sideways
             if ((pixel->flags & PIXEL_FLAG_transfer_sideways) &&
-                !F32Compare(pixel->vel.y, 0.0f, 0.01f))
+                !F32Compare(pixel->vel.y, 0.0f, 0.01f) &&
+                F32Compare(pixel->vel.x, 0.0f, 0.01f))
             {
                 S32 sign;
                 if (!F32Compare(pixel->vel.x, 0.0f, 0.01f))
@@ -602,35 +603,102 @@ function void StepPixel(Pixel *pixel, S32 x, S32 y)
         !F32Compare(pixel->vel.x, 0.0f, 0.01f) &&
         (pixel->flags & PIXEL_FLAG_transfer_sideways))
     {
-        Pixel *left = PixelAt(x-1, y);
-        Pixel *right = PixelAt(x+1, y);
+        pixel->sub_pos.x += pixel->vel.x;
+        //has_moved = 1;
         
-        if (pixel->vel.x < 0.0f)
+        // TODO(randy): I think I just disable this sub_pos, it adds too much unecessary complexity to the simulation
+        
+        // TODO(randy): If velocity is < .5 then it ain't gonna move the pixel this frame, treat it as 0, and clear it out.
+        // that bug should've been fixed with the fround anyway.
+        
+        if (fabsf(pixel->sub_pos.x) > 1.0f)
         {
-            if (CanPixelMoveTo(pixel, left))
+            Vec2S32 from_loc = V2S32(x, y);
+            Vec2S32 to_loc = V2S32(x + roundf(pixel->sub_pos.x), y);
+            pixel->sub_pos.x = 0.0f;
+            
+            Vec2S32 pixel_path[16];
+            U32 count = 0;
+            DrawLineAtoB(from_loc, to_loc, pixel_path, &count, 16);
+            
+            Pixel *last_good_pixel = 0;
+            for (int i = 1; i < count; i++)
             {
-                SwapPixels(pixel, left, &pixel);
+                Vec2S32 pos = pixel_path[i];
+                Pixel *next_pixel = PixelAt(pos.x, pos.y);
+                
+                if (CanPixelMoveTo(pixel, next_pixel))
+                {
+                    last_good_pixel = next_pixel;
+                }
+                else
+                {
+                    break;
+                }
+            }
+            
+            if (last_good_pixel)
+            {
+                SwapPixels(pixel, last_good_pixel, &pixel);
                 has_moved = 1;
             }
-        }
-        else if (pixel->vel.x > 0.0f)
-        {
-            if (CanPixelMoveTo(pixel, right))
+            else
             {
-                SwapPixels(pixel, right, &pixel);
-                has_moved = 1;
+                //pixel->vel.x = 0.0f;
+                //pixel->sub_pos.x = 0.0f;
+                
+                // TODO: collided with something, maybe flip velocity?
+                /* 
+                                pixel->vel.x *= -1.0f;
+                                pixel->sub_pos.x *= -1.0f;
+                 */
             }
         }
+        
+        
+        
+        // TODO(randy): should the sim be allowed to move small amounts across steps?
+        // why not? let's just turn it on and mess around with it, can always just flag it and disable it at any point
+        // this would probs actually look pretty hype
+        
+        /* 
+                Pixel *left = PixelAt(x-1, y);
+                Pixel *right = PixelAt(x+1, y);
+                
+                if (pixel->vel.x < 0.0f)
+                {
+                    if (CanPixelMoveTo(pixel, left))
+                    {
+                        SwapPixels(pixel, left, &pixel);
+                        has_moved = 1;
+                    }
+                }
+                else if (pixel->vel.x > 0.0f)
+                {
+                    if (CanPixelMoveTo(pixel, right))
+                    {
+                        SwapPixels(pixel, right, &pixel);
+                        has_moved = 1;
+                    }
+                }
+         */
         
         // NOTE(randy): should I have this as a flag?
         ApplyFrictionToPixel(pixel);
     }
+    
+    
+    // TODO(randy): just make all movement based off of velocity
+    
     
     //~ fast disperse horizontally
     if (!has_moved &&
         (pixel->flags & PIXEL_FLAG_fast_disperse))
     {
         U8 dispersion_rate = 5 + (rand() % 2 == 0 ? -1 : 1) * (rand() % 2);
+        
+        
+        // TODO(randy): dispersion rate derived from velocity
         
         Vec2S32 from_loc = V2S32(x, y);
         Vec2S32 to_loc = V2S32(x + dispersion_rate * (rand() % 2 ? -1 : 1), y);
@@ -642,13 +710,24 @@ function void StepPixel(Pixel *pixel, S32 x, S32 y)
         Pixel *last_good_pixel = 0;
         for (int i = 1; i < count; i++)
         {
+            
+            // NOTE(randy): This down here is the only portion of the algo that isn't generic.
+            // It's specific to water because it passes through water without bothering to check it.
+            
             Vec2S32 pos = inter_pixels[i];
-            Pixel *inter_pixel = PixelAt(pos.x, pos.y);
-            if (inter_pixel->flags != PIXEL_TYPE_water &&
-                inter_pixel->flags != PIXEL_TYPE_air)
+            Pixel *next_pixel = PixelAt(pos.x, pos.y);
+            
+            B8 is_next_pixel_same_type = pixel->flags == next_pixel->flags;
+            
+            if (CanPixelMoveTo(pixel, next_pixel) ||
+                is_next_pixel_same_type)
+            {
+                last_good_pixel = next_pixel;
+            }
+            else
+            {
                 break;
-            else if (inter_pixel->flags == PIXEL_TYPE_air)
-                last_good_pixel = inter_pixel;
+            }
         }
         
         if (last_good_pixel)
@@ -658,10 +737,9 @@ function void StepPixel(Pixel *pixel, S32 x, S32 y)
         }
     }
     
-    pixel->is_falling = has_moved;
-    
-    // TODO(randy): free falling / fake intertia
     //~ Inertia
+    pixel->is_falling = has_moved;//!F32Compare(pixel->vel.x, 0.0f, 0.1f);
+    
     if (pixel->is_falling &&
         (pixel->flags & PIXEL_FLAG_inertia))
     {
@@ -682,6 +760,9 @@ function void StepPixel(Pixel *pixel, S32 x, S32 y)
             top_right->is_falling = 1;
         }
     }
+    
+    //~WATAAAAAAAAAAAA
+    
 }
 
 function B8 CanPixelMoveTo(Pixel *src, Pixel *dest)
@@ -714,41 +795,6 @@ function void ApplyFrictionToPixel(Pixel *pixel)
     {
         pixel->vel.x = sub * sign;
     }
-}
-
-function B8 AttemptDisperseWater(Pixel *water_pixel, Vec2S32 from_loc, Vec2S32 to_loc)
-{
-    /* 
-        Vec2S32 inter_pixels[16];
-        U32 count = 0;
-        DrawLineAtoB(from_loc, to_loc, inter_pixels, &count, 16);
-        
-        Pixel *last_good_pixel = 0;
-        for (int i = 1; i < count; i++)
-        {
-            Vec2S32 pos = inter_pixels[i];
-            Pixel *inter_pixel = PixelAt(pos.x, pos.y);
-            if (inter_pixel->type != PIXEL_TYPE_water &&
-                inter_pixel->type != PIXEL_TYPE_air)
-                break;
-            else if (inter_pixel->type == PIXEL_TYPE_air)
-                last_good_pixel = inter_pixel;
-            // NOTE(randy): algo will pass through water
-        }
-        
-        if (last_good_pixel)
-        {
-            SwapPixels(water_pixel, last_good_pixel);
-            
-            return 1;
-        }
-        else
-        {
-            return 0;
-        }
-         */
-    
-    return 0;
 }
 
 // NOTE(randy): taken from https://stackoverflow.com/questions/6127503/shuffle-array-in-c
