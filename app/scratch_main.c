@@ -603,85 +603,36 @@ function void StepPixel(Pixel *pixel, S32 x, S32 y)
         !F32Compare(pixel->vel.x, 0.0f, 0.01f) &&
         (pixel->flags & PIXEL_FLAG_transfer_sideways))
     {
-        pixel->sub_pos.x += pixel->vel.x;
-        //has_moved = 1;
+        Vec2S32 from_loc = V2S32(x, y);
+        Vec2S32 to_loc = V2S32(x + roundf(pixel->vel.x), y);
         
-        // TODO(randy): I think I just disable this sub_pos, it adds too much unecessary complexity to the simulation
+        Vec2S32 pixel_path[16];
+        U32 count = 0;
+        DrawLineAtoB(from_loc, to_loc, pixel_path, &count, 16);
         
-        // TODO(randy): If velocity is < .5 then it ain't gonna move the pixel this frame, treat it as 0, and clear it out.
-        // that bug should've been fixed with the fround anyway.
-        
-        if (fabsf(pixel->sub_pos.x) > 1.0f)
+        Pixel *last_good_pixel = 0;
+        for (int i = 1; i < count; i++)
         {
-            Vec2S32 from_loc = V2S32(x, y);
-            Vec2S32 to_loc = V2S32(x + roundf(pixel->sub_pos.x), y);
-            pixel->sub_pos.x = 0.0f;
+            Vec2S32 pos = pixel_path[i];
+            Pixel *next_pixel = PixelAt(pos.x, pos.y);
             
-            Vec2S32 pixel_path[16];
-            U32 count = 0;
-            DrawLineAtoB(from_loc, to_loc, pixel_path, &count, 16);
-            
-            Pixel *last_good_pixel = 0;
-            for (int i = 1; i < count; i++)
+            if (CanPixelMoveTo(pixel, next_pixel))
             {
-                Vec2S32 pos = pixel_path[i];
-                Pixel *next_pixel = PixelAt(pos.x, pos.y);
-                
-                if (CanPixelMoveTo(pixel, next_pixel))
-                {
-                    last_good_pixel = next_pixel;
-                }
-                else
-                {
-                    break;
-                }
-            }
-            
-            if (last_good_pixel)
-            {
-                SwapPixels(pixel, last_good_pixel, &pixel);
-                has_moved = 1;
+                last_good_pixel = next_pixel;
             }
             else
             {
-                //pixel->vel.x = 0.0f;
-                //pixel->sub_pos.x = 0.0f;
-                
-                // TODO: collided with something, maybe flip velocity?
-                /* 
-                                pixel->vel.x *= -1.0f;
-                                pixel->sub_pos.x *= -1.0f;
-                 */
+                break;
             }
         }
         
-        
-        
-        // TODO(randy): should the sim be allowed to move small amounts across steps?
-        // why not? let's just turn it on and mess around with it, can always just flag it and disable it at any point
-        // this would probs actually look pretty hype
-        
-        /* 
-                Pixel *left = PixelAt(x-1, y);
-                Pixel *right = PixelAt(x+1, y);
-                
-                if (pixel->vel.x < 0.0f)
-                {
-                    if (CanPixelMoveTo(pixel, left))
-                    {
-                        SwapPixels(pixel, left, &pixel);
-                        has_moved = 1;
-                    }
-                }
-                else if (pixel->vel.x > 0.0f)
-                {
-                    if (CanPixelMoveTo(pixel, right))
-                    {
-                        SwapPixels(pixel, right, &pixel);
-                        has_moved = 1;
-                    }
-                }
-         */
+        if (last_good_pixel)
+        {
+            SwapPixels(pixel, last_good_pixel, &pixel);
+            has_moved = 1;
+        }
+        // else
+        // flip velocity?
         
         // NOTE(randy): should I have this as a flag?
         ApplyFrictionToPixel(pixel);

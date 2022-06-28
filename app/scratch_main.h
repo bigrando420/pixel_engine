@@ -58,7 +58,7 @@ typedef struct Pixel
 {
     PixelFlags flags;
     Vec2F32 vel;
-    Vec2F32 sub_pos;
+    //Vec2F32 sub_pos;
     // NOTE(randy): Not going to bother with sub_pos since it just adds wayyy too much complexity and failure points
     // can get a good enough effect just with >1 velocity-based movement
     
