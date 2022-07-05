@@ -19,12 +19,13 @@ enum
 {
     PIXEL_FLAG_gravity =             (1<<0),
     PIXEL_FLAG_move_diagonal =       (1<<1),
-    PIXEL_FLAG_transfer_sideways =   (1<<2),
+    PIXEL_FLAG_transfer_y_vel_to_x_vel_when_splat_lol =   (1<<2),
     PIXEL_FLAG_has_friction =        (1<<3),
     PIXEL_FLAG_immovable =           (1<<4),
     PIXEL_FLAG_fast_disperse  =      (1<<5),
     PIXEL_FLAG_air_lol  =      (1<<6),
-    PIXEL_FLAG_inertia  =      (1<<7)
+    PIXEL_FLAG_inertia  =      (1<<7),
+    PIXEL_FLAG_move_sideways_from_x_vel  =      (1<<8),
 };
 // NOTE(randy): these are pretty poorly defined at the moment, but no matter :)
 
@@ -34,25 +35,29 @@ enum
 typedef enum PixelType
 {
     PIXEL_TYPE_undefined = 0,
+    // 64
     PIXEL_TYPE_air = PIXEL_FLAG_air_lol,
     PIXEL_TYPE_sand = (
                        PIXEL_FLAG_gravity
                        | PIXEL_FLAG_move_diagonal
-                       | PIXEL_FLAG_transfer_sideways
+                       | PIXEL_FLAG_transfer_y_vel_to_x_vel_when_splat_lol
                        | PIXEL_FLAG_has_friction
                        | PIXEL_FLAG_inertia
+                       | PIXEL_FLAG_move_sideways_from_x_vel
                        ),
-    PIXEL_TYPE_water = (PIXEL_FLAG_gravity |
-                        PIXEL_FLAG_move_diagonal |
-                        PIXEL_FLAG_transfer_sideways | // experiment
-                        PIXEL_FLAG_fast_disperse),
+    // 39
+    PIXEL_TYPE_water = (PIXEL_FLAG_gravity
+                        | PIXEL_FLAG_move_diagonal
+                        //| PIXEL_FLAG_transfer_y_vel_to_x_vel_when_splat_lol
+                        //| PIXEL_FLAG_fast_disperse
+                        | PIXEL_FLAG_move_sideways_from_x_vel
+                        ),
     PIXEL_TYPE_platform = (PIXEL_FLAG_immovable),
     PIXEL_TYPE_MAX,
 } PixelType;
-// NOTE(randy): this is so fucking cool. Instead of me having to implement the logic for each new pixel I literally just define the flags I want to to have and that logic can be reused.
-// WOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOT
 
-
+// NOTE(randy): need a better way of giving the pixel x velocity, especially as water, since it's always got that potential
+// TODO(randy): seed it with some kind of initial velocity right away?
 
 typedef struct Pixel
 {
@@ -64,6 +69,8 @@ typedef struct Pixel
     // can get a good enough effect just with >1 velocity-based movement
     
     B8 is_falling;
+    
+    U8 vertical_move_timer;
 } Pixel;
 
 typedef struct S_State S_State;
@@ -78,6 +85,7 @@ struct S_State
     Vec4U8 pixel_render_data[SIM_Y][SIM_X];
     
     U32 selected_pixel;
+    Pixel *sel_pixel_this_frame;
     // TODO(randy): can then derive pixel* by looping through each pixel
 };
 S_State *state;
@@ -102,7 +110,7 @@ function void SetPixelType(Pixel *pixel, PixelType type);
 
 //~ NOTE(randy): Prototype controls
 #define FRICTION 0.1f
-#define BRUSH_SIZE 1
+#define BRUSH_SIZE 8
 #define DRIP 0
 #define DRIP_SPEED 1
 #define DISLODGE_CHANCE 2

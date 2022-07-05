@@ -8,6 +8,7 @@ function B8 F32Compare(F32 a, F32 b, F32 epsilon)
     return (fabsf(a-b) < epsilon);
 }
 // TODO(randy): same goes for this
+// NOTE(randy): Sign of 0 is 0
 #define Sign(_x__) ((_x__ > 0) - (_x__ < 0))
 
 typedef union Vec4U8 Vec4U8;

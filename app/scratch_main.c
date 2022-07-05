@@ -31,9 +31,26 @@ S_Close(APP_Window *window, S_State *state)
     M_ArenaRelease(state->permanent_arena);
 }
 
+B8 l_key_flip = 0;
+
 function void
 S_Update(APP_Window *window, OS_EventList *events, S_State *state)
 {
+    for (int y = 0; y < SIM_Y; y++)
+        for (int x = 0; x < SIM_X; x++)
+    {
+        Pixel *px = PixelAt(x, y);
+        if (px->id == state->selected_pixel)
+        {
+            state->sel_pixel_this_frame = px;
+        }
+    }
+    
+    if (OS_KeyPress(events, window->handle, OS_Key_L, 0))
+    {
+        l_key_flip = !l_key_flip;
+    }
+    
     local_persist PixelType selected_type = PIXEL_TYPE_sand;
     if (OS_KeyPress(events, window->handle, OS_Key_1, 0))
     {
@@ -182,29 +199,7 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
          */
     }
     
-    
-    
-    
     DR_Submit(window->window_equip, bucket.cmds);
-    
-    // NOTE(rjf): Example of explicitly using the low-level "R_" API for
-    // just sending data to the rendering backend, instead of using the
-    // higher level "DR_" (draw) API @api_notes
-    /* 
-        M_Temp scratch = GetScratch(0, 0);
-        R_CmdList cmds = {0};
-        R_Cmd cmd = {0};
-        {
-            cmd.kind = R_CmdKind_Scratch;
-            cmd.cpu_data = state->cpu_data;
-        }
-        R_CmdListPush(scratch.arena, &cmds, &cmd);
-        
-        //app_state->r_backend.Submit(app_state->r_os_equip, window->window_equip, cmds);
-        DR_Submit(window->window_equip, cmds);
-    
-    ReleaseScratch(scratch);
-     */
 }
 
 ////////////////////////////////
@@ -521,6 +516,8 @@ function void StepPixel(Pixel *pixel, S32 x, S32 y)
     
     B8 has_moved = 0;
     
+    B8 is_falling_check = ((pixel->flags & PIXEL_FLAG_inertia) ? pixel->is_falling : 1);
+    
     //~ Gravity
     if (pixel->flags & PIXEL_FLAG_gravity)
     {
@@ -565,8 +562,7 @@ function void StepPixel(Pixel *pixel, S32 x, S32 y)
         {
             // can't move down
             // transfer velocity?
-            // TODO(randy): break this out into separate flags? transfer || move_sideways
-            if ((pixel->flags & PIXEL_FLAG_transfer_sideways) &&
+            if ((pixel->flags & PIXEL_FLAG_transfer_y_vel_to_x_vel_when_splat_lol) &&
                 !F32Compare(pixel->vel.y, 0.0f, 0.01f) &&
                 F32Compare(pixel->vel.x, 0.0f, 0.01f))
             {
@@ -587,7 +583,7 @@ function void StepPixel(Pixel *pixel, S32 x, S32 y)
     
     //~ Move diagonally
     if (!has_moved &&
-        pixel->is_falling &&
+        is_falling_check &&
         (pixel->flags & PIXEL_FLAG_move_diagonal))
     {
         B8 has_x_vel = !F32Compare(pixel->vel.x, 0.0f, 0.01f);
@@ -628,11 +624,27 @@ function void StepPixel(Pixel *pixel, S32 x, S32 y)
         }
     }
     
+    if (has_moved)
+        pixel->vertical_move_timer = 20;
+    else if (pixel->vertical_move_timer != 0)
+        pixel->vertical_move_timer--;
+    
+    
+    if (F32Compare(pixel->vel.x, 0.0f, 0.01f) && GetPixelType(pixel) == PIXEL_TYPE_water)
+    {
+        // seed velocity
+        pixel->vel.x = 5.0f + (rand() % 2 == 0 ? -1 : 1) * (rand() % 2);
+        pixel->vel.x *= (rand() % 2 == 0 ? 1 : -1);
+    }
+    
+    // TODO(randy): This is behaving pretty differently from the last implementation, try make it feel more similar or go back to the old one
+    
+    
     //~ Move sideways
     if (!has_moved &&
-        pixel->is_falling &&
+        is_falling_check &&
         !F32Compare(pixel->vel.x, 0.0f, 0.01f) &&
-        (pixel->flags & PIXEL_FLAG_transfer_sideways))
+        (pixel->flags & PIXEL_FLAG_move_sideways_from_x_vel))
     {
         Vec2S32 from_loc = V2S32(x, y);
         Vec2S32 to_loc = V2S32(x + roundf(pixel->vel.x), y);
@@ -642,10 +654,11 @@ function void StepPixel(Pixel *pixel, S32 x, S32 y)
         DrawLineAtoB(from_loc, to_loc, pixel_path, &count, 16);
         
         Pixel *last_good_pixel = 0;
+        Pixel *next_pixel = 0;
         for (int i = 1; i < count; i++)
         {
             Vec2S32 pos = pixel_path[i];
-            Pixel *next_pixel = PixelAt(pos.x, pos.y);
+            next_pixel = PixelAt(pos.x, pos.y);
             
             if (CanPixelMoveTo(pixel, next_pixel))
             {
@@ -662,41 +675,80 @@ function void StepPixel(Pixel *pixel, S32 x, S32 y)
             SwapPixels(pixel, last_good_pixel, &pixel);
             has_moved = 1;
         }
-        // else
-        // flip velocity?
-        // nahhhhh she'll b rite
+        else
+        {
+            pixel->vel.x *= -1;
+            
+            /* 
+                        if (next_pixel &&
+                            next_pixel->flags == pixel->flags)
+                        {
+                            next_pixel->vel = pixel->vel;
+                        }
+                        else
+                        {
+                            pixel->vel.x *= -1;
+                        }
+             */
+        }
         
-        // NOTE(randy): should I have this as a flag?
-        ApplyFrictionToPixel(pixel);
+        if (pixel->flags & PIXEL_FLAG_has_friction)
+            ApplyFrictionToPixel(pixel);
     }
     
-    
     //~ fast disperse horizontally
+    Pixel *above_px = PixelAt(x, y+1);
+    
+    local_persist S32 update_count = 0;
+    update_count++;
+    
+    //B8 is_surface_pixel = above_px->flags != pixel->flags;
+    // disperse is pratically disabled with this.
+    // I need a better definition of surface pixel.
+    
+    // how do I check if it's reached an equilibrium?
+    
+    B8 is_surface_pixel = 0;//pixel->vertical_move_timer == 0;
+    
+    // better, but I need something smarter
+    
+    // how do I tell if it's at the level it should be at?
+    
+    // NOTE(randy): just gonna disable this and go back to the velocity-based test
+    
+    B8 disperse_check = 1;//(is_surface_pixel ? (update_count % 10 == 0) : 1);
+    
+    
+    // NOTE(randy): this entire thing has been deprecated
+#if 0
     if (!has_moved &&
+        disperse_check &&
         (pixel->flags & PIXEL_FLAG_fast_disperse))
     {
-        U8 dispersion_rate = 5 + (rand() % 2 == 0 ? -1 : 1) * (rand() % 2);
+        S32 dispersion_rate = 5 + (rand() % 2 == 0 ? -1 : 1) * (rand() % 2);
         
+        // TODO(randy): calculate dispersion based off velocity, the movement is too random at the moment.
         
-        // TODO(randy): dispersion rate derived from velocity
+        S32 x_move =  dispersion_rate * Sign(pixel->vel.x);
         
         Vec2S32 from_loc = V2S32(x, y);
-        Vec2S32 to_loc = V2S32(x + dispersion_rate * (rand() % 2 ? -1 : 1), y);
+        Vec2S32 to_loc = V2S32(x + x_move, y);
         
         Vec2S32 inter_pixels[16];
         U32 count = 0;
         DrawLineAtoB(from_loc, to_loc, inter_pixels, &count, 16);
         
         Pixel *last_good_pixel = 0;
+        Pixel *next_pixel = 0;
         for (int i = 1; i < count; i++)
         {
             Vec2S32 pos = inter_pixels[i];
-            Pixel *next_pixel = PixelAt(pos.x, pos.y);
+            next_pixel = PixelAt(pos.x, pos.y);
             
             B8 is_next_pixel_same_type = pixel->flags == next_pixel->flags;
             
-            if (CanPixelMoveTo(pixel, next_pixel) ||
-                is_next_pixel_same_type)
+            if (CanPixelMoveTo(pixel, next_pixel)
+                || (is_surface_pixel ? 0 : is_next_pixel_same_type))
             {
                 last_good_pixel = next_pixel;
             }
@@ -711,7 +763,27 @@ function void StepPixel(Pixel *pixel, S32 x, S32 y)
             SwapPixels(pixel, last_good_pixel, &pixel);
             has_moved = 1;
         }
+        else
+        {
+            // can't move, flip x velocity?
+            pixel->vel.x *= -1;
+            
+            // if pixel ran into is water pixel, and it has velocity, match velocity?
+            /* 
+                        if (next_pixel &&
+                            next_pixel->flags == pixel->flags)
+                        {
+                            pixel->vel = next_pixel->vel;
+                        }
+                        else
+                        {
+                            pixel->vel.x *= -1;
+                        }
+             */
+        }
     }
+#endif
+    
     
     //~ Inertia
     pixel->is_falling = has_moved;//!F32Compare(pixel->vel.x, 0.0f, 0.1f);
