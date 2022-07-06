@@ -9,10 +9,6 @@
 #define SIM_X (S32)(WINDOW_X / PIXEL_SCALE)
 #define SIM_Y (S32)(WINDOW_Y / PIXEL_SCALE)
 
-// TODO(randy): create a pixel clicker debugger
-
-
-// MetaDesk would make this easier
 // Combinatorics pattern taken from https://ryanfleury.substack.com/p/ui-part-3-the-widget-building-language
 typedef U32 PixelFlags;
 enum
@@ -65,9 +61,6 @@ typedef struct Pixel
     U32 id;
     PixelFlags flags;
     Vec2F32 vel;
-    //Vec2F32 sub_pos;
-    // NOTE(randy): Not going to bother with sub_pos since it just adds wayyy too much complexity and failure points
-    // can get a good enough effect just with >1 velocity-based movement
     
     B8 is_falling;
     
@@ -87,7 +80,8 @@ struct S_State
     
     U32 selected_pixel;
     Pixel *sel_pixel_this_frame;
-    // TODO(randy): can then derive pixel* by looping through each pixel
+    
+    Vec2F32 camera;
 };
 S_State *state;
 
@@ -108,6 +102,8 @@ function Vec4U8 *ColourAt(S32 x, S32 y);
 
 function PixelType GetPixelType(Pixel *pixel);
 function void SetPixelType(Pixel *pixel, PixelType type);
+
+function void CameraUpdate(Vec2F32 *cam, Vec2F32 axis_input);
 
 //~ NOTE(randy): Prototype controls
 #define FRICTION 0.1f

@@ -36,6 +36,64 @@ S32 update_count = 0;
 function void
 S_Update(APP_Window *window, OS_EventList *events, S_State *state)
 {
+    // Scuffed key_down stuff
+    local_persist B8 a_key_down = 0;
+    if (OS_KeyPress(events, window->handle, OS_Key_A, 0))
+    {
+        a_key_down = 1;
+    }
+    if (OS_KeyRelease(events, window->handle, OS_Key_A, 0))
+    {
+        a_key_down = 0;
+    }
+    local_persist B8 d_key_down = 0;
+    if (OS_KeyPress(events, window->handle, OS_Key_D, 0))
+    {
+        d_key_down = 1;
+    }
+    if (OS_KeyRelease(events, window->handle, OS_Key_D, 0))
+    {
+        d_key_down = 0;
+    }
+    local_persist B8 w_key_down = 0;
+    if (OS_KeyPress(events, window->handle, OS_Key_W, 0))
+    {
+        w_key_down = 1;
+    }
+    if (OS_KeyRelease(events, window->handle, OS_Key_W, 0))
+    {
+        w_key_down = 0;
+    }
+    local_persist B8 s_key_down = 0;
+    if (OS_KeyPress(events, window->handle, OS_Key_S, 0))
+    {
+        s_key_down = 1;
+    }
+    if (OS_KeyRelease(events, window->handle, OS_Key_S, 0))
+    {
+        s_key_down = 0;
+    }
+    
+    //~
+    // NOTE(randy): Camera input & update
+    {
+        F32 temp_camera_speed = 10.0f;
+        
+        Vec2F32 axis_input = {0};
+        
+        if (a_key_down)
+            axis_input.x = temp_camera_speed;
+        else if (d_key_down)
+            axis_input.x = -temp_camera_speed;
+        
+        if (w_key_down)
+            axis_input.y = temp_camera_speed;
+        else if (s_key_down)
+            axis_input.y = -temp_camera_speed;
+        
+        CameraUpdate(&state->camera, axis_input);
+    }
+    
     for (int y = 0; y < SIM_Y; y++)
         for (int x = 0; x < SIM_X; x++)
     {
@@ -180,10 +238,15 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
                                               size),
                                         Str8((U8*)state->pixel_render_data, sizeof(state->pixel_render_data)));
         
+        Rng2F32 target = R2F32(V2F32(0.0f, 0.0f),
+                               V2F32(WINDOW_X, WINDOW_Y));
+        
+        target.p0 = Add2F32(target.p0, state->camera);
+        target.p1 = Add2F32(target.p1, state->camera);
+        
         DR_Sprite(&bucket,
                   V4F32(1.0f, 1.0f, 1.0f, 1.0f),
-                  R2F32(V2F32(0.0f, 0.0f),
-                        V2F32(WINDOW_X, WINDOW_Y)),
+                  target,
                   R2F32(V2F32(0.0f, 0.0f),
                         V2F32(SIM_X, SIM_Y)),
                   texture);
@@ -787,4 +850,9 @@ function PixelType GetPixelType(Pixel *pixel)
 function void SetPixelType(Pixel *pixel, PixelType type)
 {
     pixel->flags = type;
+}
+
+function void CameraUpdate(Vec2F32 *cam, Vec2F32 axis_input)
+{
+    *cam = Add2F32(*cam, axis_input);
 }
