@@ -18,13 +18,14 @@ S_Open(APP_Window *window)
     state->permanent_arena = arena;
     
     state->camera_zoom = DEFAULT_CAM_ZOOM;
+    state->is_simulating = START_SIM_STRAIGHT_AWAY;
     
     SetDefaultStage();
     
     ChunkInitAtLoc(V2S32(0, 0));
     ChunkInitAtLoc(V2S32(0, 1));
-    ChunkInitAtLoc(V2S32(1, 0));
-    ChunkInitAtLoc(V2S32(3, 5));
+    //ChunkInitAtLoc(V2S32(1, 0));
+    //ChunkInitAtLoc(V2S32(3, 5));
     
     return state;
 }
@@ -113,15 +114,18 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
         CameraUpdate(&state->camera, axis_input);
     }
     
-    for (int y = 0; y < SIM_Y; y++)
-        for (int x = 0; x < SIM_X; x++)
-    {
-        Pixel *px = PixelAt(x, y);
-        if (px->id == state->selected_pixel)
+    /* 
+// TODO(randy): selection logic
+        for (int y = 0; y < SIM_Y; y++)
+            for (int x = 0; x < SIM_X; x++)
         {
-            state->sel_pixel_this_frame = px;
+            Pixel *px = PixelAt(x, y);
+            if (px->id == state->selected_pixel)
+            {
+                state->sel_pixel_this_frame = px;
+            }
         }
-    }
+     */
     
     if (OS_KeyPress(events, window->handle, OS_Key_L, 0))
     {
@@ -162,8 +166,11 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
             for (int x = size / -2; x < size / 2; x++)
         {
             Vec2S32 mouse = GetPixelAtMousePos(window);
-            Pixel *pixel = PixelAt(mouse.x + x, mouse.y + y);
-            SetPixelType(pixel, selected_type);
+            // TODO(randy): absolute pixel at
+            /* 
+                        Pixel *pixel = PixelAt(mouse.x + x, mouse.y + y);
+                        SetPixelType(pixel, selected_type);
+             */
         }
 #endif
     }
@@ -171,17 +178,20 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
     if (OS_KeyPress(events, window->handle, OS_Key_MouseRight, 0))
     {
         Vec2S32 mouse = GetPixelAtMousePos(window);
-        Pixel *pixel = PixelAt(mouse.x, mouse.y);
-        
-        state->selected_pixel = pixel->id;
+        // TODO(randy): 
+        /* 
+                Pixel *pixel = PixelAt(mouse.x, mouse.y);
+                
+                state->selected_pixel = pixel->id;
+         */
     }
     
-    if(OS_KeyPress(events, window->handle, OS_Key_A, 0))
+    if(OS_KeyPress(events, window->handle, OS_Key_Z, 0))
     {
         state->is_simulating = !state->is_simulating;
     }
     
-    if (OS_KeyPress(events, window->handle, OS_Key_S, 0))
+    if (OS_KeyPress(events, window->handle, OS_Key_X, 0))
     {
         StepPixelSimulation();
     }
@@ -204,9 +214,7 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
 #if DRIP
     // yooooo we got the drip drip
     // yuh yuh
-    local_persist S32 update_count = 0;
-    update_count++;
-    Pixel *top_middle_px = PixelAt(SIM_X / 2, SIM_Y-1);
+    Pixel *top_middle_px = &state->chunks[0].pixels[CHUNK_SIZE-1][CHUNK_SIZE / 2];
     if (drip_override &&
         update_count % DRIP_SPEED == 0)
     {
@@ -215,11 +223,8 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
 #endif
     
     
-    
-    /* 
-        if (!state->is_simulating)
-            StepPixelSimulation();
-     */
+    if (state->is_simulating)
+        StepPixelSimulation();
     
     /* 
         
@@ -335,6 +340,7 @@ APP_EntryPoint(void)
 
 // TODO(randy): maybe make the pixel getting based off of a local pixel?
 Pixel boundary_pixel = {PIXEL_TYPE_platform}; // lol
+/* 
 function Pixel *PixelAt(S32 x, S32 y)
 {
     if (x < 0 || x >= SIM_X ||
@@ -344,6 +350,7 @@ function Pixel *PixelAt(S32 x, S32 y)
     return &boundary_pixel;
     //return &state->pixels[y % SIM_Y][x % SIM_X];
 }
+ */
 
 function Vec4U8 *ColourAt(S32 x, S32 y)
 {
@@ -493,15 +500,35 @@ function void SetDefaultStage()
      */
 }
 
-function void StepPixel(Pixel *pixel, S32 x, S32 y)
+function Vec2S32 PixelDeriveLocalLocation(Chunk *chunk, Pixel *pixel)
 {
-    /* 
-        Pixel *left = PixelAt(x-1, y);
-        Pixel *right = PixelAt(x+1, y);
-        Pixel *down_left = PixelAt(x-1, y-1);
-        Pixel *down_right = PixelAt(x+1, y-1);
-     */
+    // TODO(randy): this logic ain't right, fix it
+    S32 index = (pixel - (Pixel*)chunk->pixels) / sizeof(Pixel);
+    S32 x = index % CHUNK_SIZE;
+    S32 y = floorf((F32)index / (F32)CHUNK_SIZE);
     
+    return V2S32(x, y);
+}
+
+function Pixel *PixelAtRelativeOffset(Chunk *chunk, Pixel *relative_pixel, Vec2S32 offset)
+{
+    Vec2S32 local_pos = PixelDeriveLocalLocation(chunk, relative_pixel);
+    
+    if (local_pos.x + offset.x >= 0 &&
+        local_pos.y + offset.y < CHUNK_SIZE)
+    {
+        return &chunk->pixels[local_pos.y + offset.y][local_pos.x + offset.x];
+    }
+    else
+    {
+        // it's in another chunk
+        // TODO(randy): 
+        return 0;
+    }
+}
+
+function void PixelStep(Chunk *chunk, Pixel *pixel, Vec2S32 local_pos)
+{
     B8 has_moved = 0;
     
     B8 is_falling_check = ((pixel->flags & PIXEL_FLAG_inertia) ? pixel->is_falling : 1);
@@ -509,7 +536,9 @@ function void StepPixel(Pixel *pixel, S32 x, S32 y)
     //~ Gravity
     if (pixel->flags & PIXEL_FLAG_gravity)
     {
-        if (CanPixelMoveTo(pixel, PixelAt(x, y-1)))
+        Pixel *pixel_below = PixelAtRelativeOffset(chunk, pixel, V2S32(0, -1));
+        
+        if (CanPixelMoveTo(pixel, pixel_below))
         {
             const F32 gravity = 0.4f;
             pixel->vel.y -= gravity;
@@ -517,8 +546,9 @@ function void StepPixel(Pixel *pixel, S32 x, S32 y)
             const max_speed = 10.0f;
             pixel->vel.y = Min(pixel->vel.y, max_speed);
             
-            Vec2S32 from_loc = V2S32(x, y);
-            Vec2S32 to_loc = V2S32(x, y - 1 + pixel->vel.y);
+            Vec2S32 from_loc = local_pos;
+            Vec2S32 to_loc = V2S32(local_pos.x, local_pos.y + ceilf(pixel->vel.y));
+            // Vec2S32 to_loc = V2S32(local_pos.x, local_pos.y - 1 + pixel->vel.y);
             
             Vec2S32 inter_pixels[16];
             U32 count = 0;
@@ -528,7 +558,7 @@ function void StepPixel(Pixel *pixel, S32 x, S32 y)
             for (int i = 1; i < count; i++)
             {
                 Vec2S32 pos = inter_pixels[i];
-                Pixel *inter_pixel = PixelAt(pos.x, pos.y);
+                Pixel *inter_pixel = PixelAtRelativeOffset(chunk, pixel, pos);
                 
                 if (CanPixelMoveTo(pixel, inter_pixel))
                 {
@@ -569,151 +599,140 @@ function void StepPixel(Pixel *pixel, S32 x, S32 y)
         }
     }
     
-    //~ Move diagonally
-    if (!has_moved &&
-        is_falling_check &&
-        (pixel->flags & PIXEL_FLAG_move_diagonal))
-    {
-        B8 has_x_vel = !F32Compare(pixel->vel.x, 0.0f, 0.01f);
-        B8 check_left_first;
-        if (has_x_vel)
-        {
-            check_left_first = Sign(pixel->vel.x) == -1;
-        }
-        else
-        {
-            check_left_first = rand() % 2 == 0;
-        }
-        
-        Pixel *left = PixelAt(x-1, y);
-        Pixel *right = PixelAt(x+1, y);
-        Pixel *down_left = PixelAt(x-1, y-1);
-        Pixel *down_right = PixelAt(x+1, y-1);
-        
-        if (check_left_first &&
-            CanPixelMoveTo(pixel, left) &&
-            CanPixelMoveTo(pixel, down_left))
-        {
-            SwapPixels(pixel, down_left, &pixel);
-            has_moved = 1;
-        }
-        else if (CanPixelMoveTo(pixel, right) &&
-                 CanPixelMoveTo(pixel, down_right))
-        {
-            SwapPixels(pixel, down_right, &pixel);
-            has_moved = 1;
-        }
-        else if (!check_left_first &&
-                 CanPixelMoveTo(pixel, left) &&
-                 CanPixelMoveTo(pixel, down_left))
-        {
-            SwapPixels(pixel, down_left, &pixel);
-            has_moved = 1;
-        }
-    }
-    
-    if ((pixel->flags & PIXEL_FLAG_seed_random_x_velocity) &&
-        F32Compare(pixel->vel.x, 0.0f, 0.01f) && GetPixelType(pixel) == PIXEL_TYPE_water)
-    {
-        pixel->vel.x = 5.0f + (rand() % 2 == 0 ? -1 : 1) * (rand() % 2);
-        pixel->vel.x *= (rand() % 2 == 0 ? 1 : -1);
-    }
-    
-    
-    
-    //~ Move sideways
-    // TODO(randy): Need a better way of figuring out if the water pixel is level
-    // Right now it's a bit icky, but good enough
-    if (has_moved)
-        pixel->vertical_move_timer = 20;
-    else if (pixel->vertical_move_timer != 0)
-        pixel->vertical_move_timer--;
-    
-    B8 has_pixel_reached_level = pixel->vertical_move_timer == 0;
-    B8 skip_sideways_update = (has_pixel_reached_level ? !(update_count % 10 == 0) : 0);
-    
-    if (!skip_sideways_update &&
-        !has_moved &&
-        is_falling_check &&
-        !F32Compare(pixel->vel.x, 0.0f, 0.01f) &&
-        (pixel->flags & PIXEL_FLAG_move_sideways_from_x_vel))
-    {
-        Vec2S32 from_loc = V2S32(x, y);
-        Vec2S32 to_loc = V2S32(x + roundf(pixel->vel.x), y);
-        
-        Vec2S32 pixel_path[16];
-        U32 count = 0;
-        DrawLineAtoB(from_loc, to_loc, pixel_path, &count, 16);
-        
-        Pixel *last_good_pixel = 0;
-        Pixel *next_pixel = 0;
-        for (int i = 1; i < count; i++)
-        {
-            Vec2S32 pos = pixel_path[i];
-            next_pixel = PixelAt(pos.x, pos.y);
-            
-            if (CanPixelMoveTo(pixel, next_pixel) ||
-                (has_pixel_reached_level ? 0 : pixel->flags == next_pixel->flags))
+    /*
+            //~ Move diagonally
+            if (!has_moved &&
+                is_falling_check &&
+                (pixel->flags & PIXEL_FLAG_move_diagonal))
             {
-                last_good_pixel = next_pixel;
+                B8 has_x_vel = !F32Compare(pixel->vel.x, 0.0f, 0.01f);
+                B8 check_left_first;
+                if (has_x_vel)
+                {
+                    check_left_first = Sign(pixel->vel.x) == -1;
+                }
+                else
+                {
+                    check_left_first = rand() % 2 == 0;
+                }
+                
+                Pixel *left = PixelAt(x-1, y);
+                Pixel *right = PixelAt(x+1, y);
+                Pixel *down_left = PixelAt(x-1, y-1);
+                Pixel *down_right = PixelAt(x+1, y-1);
+                
+                if (check_left_first &&
+                    CanPixelMoveTo(pixel, left) &&
+                    CanPixelMoveTo(pixel, down_left))
+                {
+                    SwapPixels(pixel, down_left, &pixel);
+                    has_moved = 1;
+                }
+                else if (CanPixelMoveTo(pixel, right) &&
+                         CanPixelMoveTo(pixel, down_right))
+                {
+                    SwapPixels(pixel, down_right, &pixel);
+                    has_moved = 1;
+                }
+                else if (!check_left_first &&
+                         CanPixelMoveTo(pixel, left) &&
+                         CanPixelMoveTo(pixel, down_left))
+                {
+                    SwapPixels(pixel, down_left, &pixel);
+                    has_moved = 1;
+                }
             }
-            else
-            {
-                break;
-            }
-        }
-        
-        if (last_good_pixel)
-        {
-            SwapPixels(pixel, last_good_pixel, &pixel);
-            has_moved = 1;
-        }
-        else
-        {
-            pixel->vel.x *= -1;
             
-            /* 
-                        if (next_pixel &&
-                            next_pixel->flags == pixel->flags)
-                        {
-                            next_pixel->vel = pixel->vel;
-                        }
-                        else
-                        {
-                            pixel->vel.x *= -1;
-                        }
-             */
-        }
-        
-        if (pixel->flags & PIXEL_FLAG_has_friction)
-            ApplyFrictionToPixel(pixel);
-    }
+            if ((pixel->flags & PIXEL_FLAG_seed_random_x_velocity) &&
+                F32Compare(pixel->vel.x, 0.0f, 0.01f) && GetPixelType(pixel) == PIXEL_TYPE_water)
+            {
+                pixel->vel.x = 5.0f + (rand() % 2 == 0 ? -1 : 1) * (rand() % 2);
+                pixel->vel.x *= (rand() % 2 == 0 ? 1 : -1);
+            }
+            
+            
+            
+            //~ Move sideways
+            // TODO(randy): Need a better way of figuring out if the water pixel is level
+            // Right now it's a bit icky, but good enough
+            if (has_moved)
+                pixel->vertical_move_timer = 20;
+            else if (pixel->vertical_move_timer != 0)
+                pixel->vertical_move_timer--;
+            
+            B8 has_pixel_reached_level = pixel->vertical_move_timer == 0;
+            B8 skip_sideways_update = (has_pixel_reached_level ? !(update_count % 10 == 0) : 0);
+            
+            if (!skip_sideways_update &&
+                !has_moved &&
+                is_falling_check &&
+                !F32Compare(pixel->vel.x, 0.0f, 0.01f) &&
+                (pixel->flags & PIXEL_FLAG_move_sideways_from_x_vel))
+            {
+                Vec2S32 from_loc = V2S32(x, y);
+                Vec2S32 to_loc = V2S32(x + roundf(pixel->vel.x), y);
+                
+                Vec2S32 pixel_path[16];
+                U32 count = 0;
+                DrawLineAtoB(from_loc, to_loc, pixel_path, &count, 16);
+                
+                Pixel *last_good_pixel = 0;
+                Pixel *next_pixel = 0;
+                for (int i = 1; i < count; i++)
+                {
+                    Vec2S32 pos = pixel_path[i];
+                    next_pixel = PixelAt(pos.x, pos.y);
+                    
+                    if (CanPixelMoveTo(pixel, next_pixel) ||
+                        (has_pixel_reached_level ? 0 : pixel->flags == next_pixel->flags))
+                    {
+                        last_good_pixel = next_pixel;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                
+                if (last_good_pixel)
+                {
+                    SwapPixels(pixel, last_good_pixel, &pixel);
+                    has_moved = 1;
+                }
+                else
+                {
+                    pixel->vel.x *= -1;
+                }
+                
+                if (pixel->flags & PIXEL_FLAG_has_friction)
+                    ApplyFrictionToPixel(pixel);
+            }
+            
+            //~ Inertia
+            pixel->is_falling = has_moved;//!F32Compare(pixel->vel.x, 0.0f, 0.1f);
+            
+            if (pixel->is_falling &&
+                (pixel->flags & PIXEL_FLAG_inertia))
+            {
+                Pixel *left = PixelAt(x-1, y);
+                Pixel *right = PixelAt(x+1, y);
+                Pixel *down_left = PixelAt(x-1, y-1);
+                Pixel *down_right = PixelAt(x+1, y-1);
+                Pixel *top_left = PixelAt(x-1, y+1);
+                Pixel *top_right = PixelAt(x+1, y+1);
+                
+                if (rand() % DISLODGE_CHANCE == 0)
+                {
+                    left->is_falling = 1;
+                    right->is_falling = 1;
+                    down_left->is_falling = 1;
+                    down_right->is_falling = 1;
+                    top_left->is_falling = 1;
+                    top_right->is_falling = 1;
+                }
+            }
+         */
     
-    //~ Inertia
-    pixel->is_falling = has_moved;//!F32Compare(pixel->vel.x, 0.0f, 0.1f);
-    
-    if (pixel->is_falling &&
-        (pixel->flags & PIXEL_FLAG_inertia))
-    {
-        Pixel *left = PixelAt(x-1, y);
-        Pixel *right = PixelAt(x+1, y);
-        Pixel *down_left = PixelAt(x-1, y-1);
-        Pixel *down_right = PixelAt(x+1, y-1);
-        Pixel *top_left = PixelAt(x-1, y+1);
-        Pixel *top_right = PixelAt(x+1, y+1);
-        
-        if (rand() % DISLODGE_CHANCE == 0)
-        {
-            left->is_falling = 1;
-            right->is_falling = 1;
-            down_left->is_falling = 1;
-            down_right->is_falling = 1;
-            top_left->is_falling = 1;
-            top_right->is_falling = 1;
-        }
-    }
-    
-    //~WATAAAAAAAAAAAA
     
 }
 
@@ -780,6 +799,16 @@ function void CameraUpdate(Vec2F32 *cam, Vec2F32 axis_input)
     *cam = Add2F32(*cam, axis_input);
 }
 
+function void ChunkSetDefaultPixels(Chunk *chunk)
+{
+    for (int y = 0; y < CHUNK_SIZE; y++)
+        for (int x = 0; x < CHUNK_SIZE; x++)
+    {
+        Pixel *pxl = &chunk->pixels[y][x];
+        SetPixelType(pxl, PIXEL_TYPE_air);
+    }
+}
+
 function Chunk *ChunkInitAtLoc(Vec2S32 loc)
 {
     for (int i = 0; i < MAX_ACTIVE_CHUNKS; i++)
@@ -798,12 +827,14 @@ function Chunk *ChunkInitAtLoc(Vec2S32 loc)
     // NOTE(randy): find next valid chunk, init it with this location
     for (int i = 0; i < MAX_ACTIVE_CHUNKS; i++)
     {
-        Chunk *next_chunk = &state->chunks[i];
-        if (!next_chunk->valid)
+        Chunk *chunk = &state->chunks[i];
+        if (!chunk->valid)
         {
-            next_chunk->valid = 1;
-            next_chunk->loc = loc;
-            return next_chunk;
+            chunk->valid = 1;
+            chunk->loc = loc;
+            ChunkSetDefaultPixels(chunk);
+            
+            return chunk;
         }
     }
     
@@ -837,7 +868,7 @@ function void ChunkUpdate(Chunk *chunk)
         {
             S32 x_pos = x_pixels[x];
             Pixel *pixel = &chunk->pixels[y][x_pos];
-            StepPixel(pixel, x_pos, y);
+            PixelStep(chunk, pixel, V2S32(x_pos, y));
         }
     }
 }
@@ -863,12 +894,14 @@ function void ChunkRender(Chunk *chunk, DR_Bucket *bucket)
         for (int x = 0; x < CHUNK_SIZE; x++)
     {
         Vec4U8 *col = &chunk_texture_data[y][x];
-        Pixel *px = &chunk->pixels[SIM_Y-y-1][x];
+        Pixel *px = &chunk->pixels[CHUNK_SIZE-y-1][x];
         
-        col->r = (F32)x / (F32)CHUNK_SIZE * 255;
-        col->g = (F32)y / (F32)CHUNK_SIZE * 255;
-        col->b = 0;
-        col->a = 255;
+        /* 
+                col->r = (F32)x / (F32)CHUNK_SIZE * 255;
+                col->g = (F32)y / (F32)CHUNK_SIZE * 255;
+                col->b = 0;
+                col->a = 255;
+         */
         
         /* 
                 if (px->id == state->selected_pixel)
@@ -879,51 +912,51 @@ function void ChunkRender(Chunk *chunk, DR_Bucket *bucket)
                     col->a = 255;
                     continue;
                 }
-                
-                switch (GetPixelType(px))
-                {
-                    case PIXEL_TYPE_platform:
-                    {
-                        col->r = 145;
-                        col->g = 139;
-                        col->b = 134;
-                        col->a = 255;
-                    } break;
-                    
-                    case PIXEL_TYPE_air:
-                    {
-                        col->r = 180;
-                        col->g = 203;
-                        col->b = 240;
-                        col->a = 255;
-                    } break;
-                    
-                    case PIXEL_TYPE_sand:
-                    {
-                        col->r = 242;
-                        col->g = 216;
-                        col->b = 145;
-                        col->a = 255;
-                    } break;
-                    
-                    case PIXEL_TYPE_water:
-                    {
-                        col->r = 74;
-                        col->g = 147;
-                        col->b = 244;
-                        col->a = 255;
-                    } break;
-                    
-                    case PIXEL_TYPE_undefined:
-                    default:
-                    {
-                        col->r = 255;
-                        col->g = 0;
-                        col->b = 0;
-                        col->a = 255;
-                    } break;
-                }
          */
+        
+        switch (GetPixelType(px))
+        {
+            case PIXEL_TYPE_platform:
+            {
+                col->r = 145;
+                col->g = 139;
+                col->b = 134;
+                col->a = 255;
+            } break;
+            
+            case PIXEL_TYPE_air:
+            {
+                col->r = 180;
+                col->g = 203;
+                col->b = 240;
+                col->a = 255;
+            } break;
+            
+            case PIXEL_TYPE_sand:
+            {
+                col->r = 242;
+                col->g = 216;
+                col->b = 145;
+                col->a = 255;
+            } break;
+            
+            case PIXEL_TYPE_water:
+            {
+                col->r = 74;
+                col->g = 147;
+                col->b = 244;
+                col->a = 255;
+            } break;
+            
+            case PIXEL_TYPE_undefined:
+            default:
+            {
+                col->r = 255;
+                col->g = 0;
+                col->b = 0;
+                col->a = 255;
+            } break;
+        }
     }
     
     // NOTE(randy): Create a texture and fill it with the pixel data

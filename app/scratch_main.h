@@ -99,14 +99,13 @@ struct S_State
 S_State *state;
 
 function void StepPixelSimulation();
-function Pixel *PixelAt(S32 x, S32 y);
+
 function void SwapPixels(Pixel *from, Pixel *to, Pixel **from_pointer);
 function void UpdatePixelRenderData();
 function void DrawLineAtoB(Vec2S32 a, Vec2S32 b, Vec2S32* dest_arr, U32* count, U32 max_count);
 function Vec2S32 GetPixelLocation(Pixel *pixel);
 function Vec2S32 GetPixelAtMousePos(APP_Window *window);
 function void SetDefaultStage();
-function void StepPixel(Pixel *pixel, S32 x, S32 y); // TODO(randy): make location implicit (it already is but I'm too lazy to derive it lol)
 function void ShuffleArray(S32 *array, size_t n);
 function B8 CanPixelMoveTo(Pixel *src, Pixel *dest);
 function void ApplyFrictionToPixel(Pixel *pixel);
@@ -116,6 +115,13 @@ function PixelType GetPixelType(Pixel *pixel);
 function void SetPixelType(Pixel *pixel, PixelType type);
 
 function void CameraUpdate(Vec2F32 *cam, Vec2F32 axis_input);
+
+// NOTE(randy): should I add chunk in front of this so it's clear that it's a sub-set?
+// I think so.
+function void PixelStep(Chunk *chunk, Pixel *pixel, Vec2S32 local_pos);
+function Pixel *PixelAtRelativeOffset(Chunk *chunk, Pixel *relative_pixel, Vec2S32 offset);
+
+function Vec2S32 PixelDeriveLocalLocation(Chunk *chunk, Pixel *pixel);
 
 function void ChunkUpdateActive();
 function void ChunkUpdate(Chunk *chunk);
@@ -128,12 +134,13 @@ function Chunk *ChunkInitAtLoc(Vec2S32 loc);
 //~ NOTE(randy): Prototype controls
 #define FRICTION 0.1f
 #define BRUSH_SIZE 8
-#define DRIP 0
+#define START_SIM_STRAIGHT_AWAY 0
+#define DRIP 1
 #define DRIP_SPEED 1
 #define DISLODGE_CHANCE 10
 
 #define BRUSH_PREVIEW 0
 
-#define DEFAULT_CAM_ZOOM 1
+#define DEFAULT_CAM_ZOOM 10
 
 #endif //SCRATCH_MAIN_H
