@@ -67,6 +67,17 @@ typedef struct Pixel
     U8 vertical_move_timer;
 } Pixel;
 
+#define MAX_ACTIVE_CHUNKS 128
+#define CHUNK_SIZE 64
+typedef struct Chunk
+{
+    B8 valid; // scuffed, this'll become implicit when/if I move to a hash map
+    Vec2S32 loc;
+    Pixel pixels[CHUNK_SIZE][CHUNK_SIZE];
+    Vec4U8 temp_pixel_texture[CHUNK_SIZE][CHUNK_SIZE]; // It'd be cheaper to recalc every frame
+} Chunk;
+
+
 typedef struct S_State S_State;
 struct S_State
 {
@@ -74,21 +85,22 @@ struct S_State
     
     B8 is_simulating;
     
-    Pixel pixels[SIM_Y][SIM_X];
-    //U8 pixel_render_data[SIM_X * SIM_Y * 4];
-    Vec4U8 pixel_render_data[SIM_Y][SIM_X];
+    Chunk chunks[MAX_ACTIVE_CHUNKS];
+    
+    //Pixel pixels[SIM_Y][SIM_X];
+    //Vec4U8 pixel_render_data[SIM_Y][SIM_X];
     
     U32 selected_pixel;
     Pixel *sel_pixel_this_frame;
     
     Vec2F32 camera;
+    F32 camera_zoom;
 };
 S_State *state;
 
 function void StepPixelSimulation();
 function Pixel *PixelAt(S32 x, S32 y);
 function void SwapPixels(Pixel *from, Pixel *to, Pixel **from_pointer);
-function void FillPixelDataRandomly();
 function void UpdatePixelRenderData();
 function void DrawLineAtoB(Vec2S32 a, Vec2S32 b, Vec2S32* dest_arr, U32* count, U32 max_count);
 function Vec2S32 GetPixelLocation(Pixel *pixel);
@@ -105,13 +117,23 @@ function void SetPixelType(Pixel *pixel, PixelType type);
 
 function void CameraUpdate(Vec2F32 *cam, Vec2F32 axis_input);
 
+function void ChunkUpdateActive();
+function void ChunkUpdate(Chunk *chunk);
+function void ChunkRenderActive(DR_Bucket *bucket);
+function void ChunkRender(Chunk *chunk, DR_Bucket *bucket);
+function Chunk *ChunkInitAtLoc(Vec2S32 loc);
+
+
+
 //~ NOTE(randy): Prototype controls
 #define FRICTION 0.1f
 #define BRUSH_SIZE 8
 #define DRIP 0
 #define DRIP_SPEED 1
-#define DISLODGE_CHANCE 2
+#define DISLODGE_CHANCE 10
 
 #define BRUSH_PREVIEW 0
+
+#define DEFAULT_CAM_ZOOM 1
 
 #endif //SCRATCH_MAIN_H

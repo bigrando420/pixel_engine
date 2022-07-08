@@ -17,10 +17,14 @@ S_Open(APP_Window *window)
     state = PushStruct(arena, S_State);
     state->permanent_arena = arena;
     
-    //FillPixelDataRandomly();
+    state->camera_zoom = DEFAULT_CAM_ZOOM;
+    
     SetDefaultStage();
     
-    //state->cpu_data = Str8(state->pixel_data, PIXEL_COUNT * 4);
+    ChunkInitAtLoc(V2S32(0, 0));
+    ChunkInitAtLoc(V2S32(0, 1));
+    ChunkInitAtLoc(V2S32(1, 0));
+    ChunkInitAtLoc(V2S32(3, 5));
     
     return state;
 }
@@ -77,6 +81,21 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
     //~
     // NOTE(randy): Camera input & update
     {
+        if (OS_KeyPress(events, window->handle, OS_Key_Equal, 0))
+        {
+            if (state->camera_zoom <= 1.01f)
+                state->camera_zoom *= 2.0f;
+            else
+                state->camera_zoom += 1.0f;
+        }
+        else if (OS_KeyPress(events, window->handle, OS_Key_Minus, 0))
+        {
+            if (state->camera_zoom <= 1.01f)
+                state->camera_zoom /= 2.0f;
+            else
+                state->camera_zoom -= 1.0f;
+        }
+        
         F32 temp_camera_speed = 10.0f;
         
         Vec2F32 axis_input = {0};
@@ -169,7 +188,7 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
     
     if (OS_KeyPress(events, window->handle, OS_Key_R, 0))
     {
-        FillPixelDataRandomly();
+        // FillPixelDataRandomly();
     }
     
     if (OS_KeyPress(events, window->handle, OS_Key_C, 0))
@@ -196,72 +215,45 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
 #endif
     
     
-    if (!state->is_simulating)
-        StepPixelSimulation();
     
-    DR_Bucket bucket = {0};
-    {
-        Vec2F32 mouse = OS_MouseFromWindow(window->handle);
+    /* 
+        if (!state->is_simulating)
+            StepPixelSimulation();
+     */
+    
+    /* 
         
-        Vec2S64 size = V2S64(SIM_X,
-                             SIM_Y);
-        
-        R_Handle texture = dr_state->backend.ReserveTexture2D(dr_state->os_eqp,
-                                                              size,
-                                                              R_Texture2DFormat_RGBA8);
-        
-        UpdatePixelRenderData();
-        
-#if BRUSH_PREVIEW
-        // TODO(randy): just render the outline instead of full square
         {
-            S32 size = BRUSH_SIZE;
-            for (int y = size / -2; y < size / 2; y++)
-                for (int x = size / -2; x < size / 2; x++)
+            Vec2F32 mouse = OS_MouseFromWindow(window->handle);
+            
+            Vec2S64 size = V2S64(SIM_X,
+                                 SIM_Y);
+            
+    #if BRUSH_PREVIEW
+            // TODO(randy): just render the outline instead of full square
             {
-                Vec2S32 mouse = GetPixelAtMousePos(window);
-                Vec4U8 *col = ColourAt(mouse.x + x, SIM_Y-mouse.y + y);
-                if (col)
+                S32 size = BRUSH_SIZE;
+                for (int y = size / -2; y < size / 2; y++)
+                    for (int x = size / -2; x < size / 2; x++)
                 {
-                    col->r = 230;
-                    col->g = 230;
-                    col->b = 230;
-                    col->a = 255;
+                    Vec2S32 mouse = GetPixelAtMousePos(window);
+                    Vec4U8 *col = ColourAt(mouse.x + x, SIM_Y-mouse.y + y);
+                    if (col)
+                    {
+                        col->r = 230;
+                        col->g = 230;
+                        col->b = 230;
+                        col->a = 255;
+                    }
                 }
             }
-        }
-#endif
-        
-        dr_state->backend.FillTexture2D(dr_state->os_eqp,
-                                        texture,
-                                        R2S64(V2S64(0, 0),
-                                              size),
-                                        Str8((U8*)state->pixel_render_data, sizeof(state->pixel_render_data)));
-        
-        Rng2F32 target = R2F32(V2F32(0.0f, 0.0f),
-                               V2F32(WINDOW_X, WINDOW_Y));
-        
-        target.p0 = Add2F32(target.p0, state->camera);
-        target.p1 = Add2F32(target.p1, state->camera);
-        
-        DR_Sprite(&bucket,
-                  V4F32(1.0f, 1.0f, 1.0f, 1.0f),
-                  target,
-                  R2F32(V2F32(0.0f, 0.0f),
-                        V2F32(SIM_X, SIM_Y)),
-                  texture);
-        
-        /* 
-                DR_Sprite(&bucket,
-                          V4F32(1.0f, 1.0f, 1.0f, 1.0f),
-                          R2F32(V2F32(0.0f, 0.0f),
-                                V2F32(WINDOW_X - 20, WINDOW_Y - 55)), // NOTE(randy): why isn't this sized properly? Texture overhangs off screen without these subtractions. Window border perhaps?
-                          R2F32(V2F32(0.0f, 0.0f),
-                                V2F32(SIM_X, SIM_Y)),
-                          texture);
-         */
-    }
+    #endif
+     */
     
+    
+    DR_Bucket bucket = {0};
+    // TODO(randy): bg rect
+    ChunkRenderActive(&bucket);
     DR_Submit(window->window_equip, bucket.cmds);
     
     update_count++;
@@ -349,7 +341,8 @@ function Pixel *PixelAt(S32 x, S32 y)
         y < 0 || y >= SIM_Y)
         return &boundary_pixel;
     
-    return &state->pixels[y % SIM_Y][x % SIM_X];
+    return &boundary_pixel;
+    //return &state->pixels[y % SIM_Y][x % SIM_X];
 }
 
 function Vec4U8 *ColourAt(S32 x, S32 y)
@@ -358,7 +351,8 @@ function Vec4U8 *ColourAt(S32 x, S32 y)
         y < 0 || y >= SIM_Y)
         return 0;
     
-    return &state->pixel_render_data[y][x];
+    return 0;
+    //return &state->pixel_render_data[y][x];
 }
 
 function void SwapPixels(Pixel *from, Pixel *to, Pixel **from_pointer)
@@ -370,6 +364,7 @@ function void SwapPixels(Pixel *from, Pixel *to, Pixel **from_pointer)
     *from_pointer = to;
 }
 
+/* 
 function void FillPixelDataRandomly()
 {
     for (int y = 0; y < SIM_Y; y++)
@@ -379,88 +374,12 @@ function void FillPixelDataRandomly()
         //pixel->type = (PixelType)(rand() % 3);
     }
 }
+ */
 
-function void UpdatePixelRenderData()
-{
-    for (int y = 0; y < SIM_Y; y++)
-        for (int x = 0; x < SIM_X; x++)
-    {
-        Vec4U8 *col = &state->pixel_render_data[y][x];
-        Pixel *px = &state->pixels[SIM_Y-y-1][x];
-        
-        if (px->id == state->selected_pixel)
-        {
-            col->r = 255;
-            col->g = 100;
-            col->b = 100;
-            col->a = 255;
-            continue;
-        }
-        
-        switch (GetPixelType(px))
-        {
-            case PIXEL_TYPE_platform:
-            {
-                col->r = 145;
-                col->g = 139;
-                col->b = 134;
-                col->a = 255;
-            } break;
-            
-            case PIXEL_TYPE_air:
-            {
-                col->r = 180;
-                col->g = 203;
-                col->b = 240;
-                col->a = 255;
-            } break;
-            
-            case PIXEL_TYPE_sand:
-            {
-                col->r = 242;
-                col->g = 216;
-                col->b = 145;
-                col->a = 255;
-            } break;
-            
-            case PIXEL_TYPE_water:
-            {
-                col->r = 74;
-                col->g = 147;
-                col->b = 244;
-                col->a = 255;
-            } break;
-            
-            case PIXEL_TYPE_undefined:
-            default:
-            {
-                col->r = 255;
-                col->g = 0;
-                col->b = 0;
-                col->a = 255;
-            } break;
-        }
-    }
-}
 
 function void StepPixelSimulation()
 {
-    S32 x_pixels[SIM_X];
-    for (int i = 0; i < SIM_X; i++)
-    {
-        x_pixels[i] = i;
-    }
-    ShuffleArray(x_pixels, SIM_X);
-    
-    for (int y = 0; y < SIM_Y; y++)
-    {
-        for (int x = 0; x < SIM_X; x++)
-        {
-            S32 x_pos = x_pixels[x];
-            Pixel *pixel = &state->pixels[y][x_pos];
-            StepPixel(pixel, x_pos, y);
-        }
-    }
+    ChunkUpdateActive();
 }
 
 
@@ -531,12 +450,14 @@ function void DrawLineAtoB(Vec2S32 a, Vec2S32 b, Vec2S32* dest_arr, U32* dest_co
 
 function Vec2S32 GetPixelLocation(Pixel *pixel)
 {
-    for (int y = 0; y < SIM_Y; y++)
-        for (int x = 0; x < SIM_X; x++)
-    {
-        if (&state->pixels[y][x] == pixel)
-            return V2S32(x, y);
-    }
+    /* 
+        for (int y = 0; y < SIM_Y; y++)
+            for (int x = 0; x < SIM_X; x++)
+        {
+            if (&state->pixels[y][x] == pixel)
+                return V2S32(x, y);
+        }
+     */
     
     return V2S32(-1, -1);
 }
@@ -550,24 +471,26 @@ function Vec2S32 GetPixelAtMousePos(APP_Window *window)
 
 function void SetDefaultStage()
 {
-    MemorySet(state->pixels, 0, sizeof(state->pixels));
-    
-    for (int y = 0; y < SIM_Y; y++)
-        for (int x = 0; x < SIM_X; x++)
-    {
-        Pixel* px = PixelAt(x, y);
-        px->id = x + y * SIM_X + 1;
+    /* 
+        MemorySet(state->pixels, 0, sizeof(state->pixels));
         
-        if (x >= SIM_X / 10 && x <= SIM_X - SIM_X / 10 &&
-            y >= 20 && y <= 30)
+        for (int y = 0; y < SIM_Y; y++)
+            for (int x = 0; x < SIM_X; x++)
         {
-            SetPixelType(px, PIXEL_TYPE_platform);
+            Pixel* px = PixelAt(x, y);
+            px->id = x + y * SIM_X + 1;
+            
+            if (x >= SIM_X / 10 && x <= SIM_X - SIM_X / 10 &&
+                y >= 20 && y <= 30)
+            {
+                SetPixelType(px, PIXEL_TYPE_platform);
+            }
+            else
+            {
+                SetPixelType(px, PIXEL_TYPE_air);
+            }
         }
-        else
-        {
-            SetPixelType(px, PIXEL_TYPE_air);
-        }
-    }
+     */
 }
 
 function void StepPixel(Pixel *pixel, S32 x, S32 y)
@@ -855,4 +778,181 @@ function void SetPixelType(Pixel *pixel, PixelType type)
 function void CameraUpdate(Vec2F32 *cam, Vec2F32 axis_input)
 {
     *cam = Add2F32(*cam, axis_input);
+}
+
+function Chunk *ChunkInitAtLoc(Vec2S32 loc)
+{
+    for (int i = 0; i < MAX_ACTIVE_CHUNKS; i++)
+    {
+        Chunk *next_chunk = &state->chunks[i];
+        if (next_chunk->valid &&
+            next_chunk->loc.x == loc.x &&
+            next_chunk->loc.y == loc.y)
+        {
+            // already exists
+            Assert(0);
+            return 0;
+        }
+    }
+    
+    // NOTE(randy): find next valid chunk, init it with this location
+    for (int i = 0; i < MAX_ACTIVE_CHUNKS; i++)
+    {
+        Chunk *next_chunk = &state->chunks[i];
+        if (!next_chunk->valid)
+        {
+            next_chunk->valid = 1;
+            next_chunk->loc = loc;
+            return next_chunk;
+        }
+    }
+    
+    return 0;
+}
+
+function void ChunkUpdateActive()
+{
+    for (int i = 0; i < MAX_ACTIVE_CHUNKS; i++)
+    {
+        Chunk *next_chunk = &state->chunks[i];
+        if (next_chunk->valid)
+        {
+            ChunkUpdate(next_chunk);
+        }
+    }
+}
+
+function void ChunkUpdate(Chunk *chunk)
+{
+    S32 x_pixels[CHUNK_SIZE];
+    for (int i = 0; i < CHUNK_SIZE; i++)
+    {
+        x_pixels[i] = i;
+    }
+    ShuffleArray(x_pixels, CHUNK_SIZE);
+    
+    for (int y = 0; y < CHUNK_SIZE; y++)
+    {
+        for (int x = 0; x < CHUNK_SIZE; x++)
+        {
+            S32 x_pos = x_pixels[x];
+            Pixel *pixel = &chunk->pixels[y][x_pos];
+            StepPixel(pixel, x_pos, y);
+        }
+    }
+}
+
+
+function void ChunkRenderActive(DR_Bucket *bucket)
+{
+    for (int i = 0; i < MAX_ACTIVE_CHUNKS; i++)
+    {
+        Chunk *next_chunk = &state->chunks[i];
+        if (next_chunk->valid)
+        {
+            ChunkRender(next_chunk, bucket);
+        }
+    }
+}
+
+function void ChunkRender(Chunk *chunk, DR_Bucket *bucket)
+{
+    Vec4U8 chunk_texture_data[CHUNK_SIZE][CHUNK_SIZE];
+    
+    for (int y = 0; y < CHUNK_SIZE; y++)
+        for (int x = 0; x < CHUNK_SIZE; x++)
+    {
+        Vec4U8 *col = &chunk_texture_data[y][x];
+        Pixel *px = &chunk->pixels[SIM_Y-y-1][x];
+        
+        col->r = (F32)x / (F32)CHUNK_SIZE * 255;
+        col->g = (F32)y / (F32)CHUNK_SIZE * 255;
+        col->b = 0;
+        col->a = 255;
+        
+        /* 
+                if (px->id == state->selected_pixel)
+                {
+                    col->r = 255;
+                    col->g = 100;
+                    col->b = 100;
+                    col->a = 255;
+                    continue;
+                }
+                
+                switch (GetPixelType(px))
+                {
+                    case PIXEL_TYPE_platform:
+                    {
+                        col->r = 145;
+                        col->g = 139;
+                        col->b = 134;
+                        col->a = 255;
+                    } break;
+                    
+                    case PIXEL_TYPE_air:
+                    {
+                        col->r = 180;
+                        col->g = 203;
+                        col->b = 240;
+                        col->a = 255;
+                    } break;
+                    
+                    case PIXEL_TYPE_sand:
+                    {
+                        col->r = 242;
+                        col->g = 216;
+                        col->b = 145;
+                        col->a = 255;
+                    } break;
+                    
+                    case PIXEL_TYPE_water:
+                    {
+                        col->r = 74;
+                        col->g = 147;
+                        col->b = 244;
+                        col->a = 255;
+                    } break;
+                    
+                    case PIXEL_TYPE_undefined:
+                    default:
+                    {
+                        col->r = 255;
+                        col->g = 0;
+                        col->b = 0;
+                        col->a = 255;
+                    } break;
+                }
+         */
+    }
+    
+    // NOTE(randy): Create a texture and fill it with the pixel data
+    Vec2S64 texture_size = V2S64(CHUNK_SIZE, CHUNK_SIZE);
+    R_Handle texture = dr_state->backend.ReserveTexture2D(dr_state->os_eqp,
+                                                          texture_size,
+                                                          R_Texture2DFormat_RGBA8);
+    dr_state->backend.FillTexture2D(dr_state->os_eqp,
+                                    texture,
+                                    R2S64(V2S64(0, 0),
+                                          texture_size),
+                                    Str8((U8*)chunk_texture_data, 
+                                         sizeof(chunk_texture_data)));
+    
+    F32 chunk_render_size = texture_size.x * state->camera_zoom;
+    
+    Rng2F32 render_rect = R2F32(V2F32(0.0f, 0.0f),
+                                V2F32(chunk_render_size,
+                                      chunk_render_size));
+    
+    render_rect = Shift2F32(render_rect, V2F32(chunk->loc.x * chunk_render_size,
+                                               chunk->loc.y * chunk_render_size));
+    render_rect = Shift2F32(render_rect, state->camera);
+    
+    
+    DR_Sprite(bucket,
+              V4F32(1.0f, 1.0f, 1.0f, 1.0f),
+              render_rect,
+              R2F32(V2F32(0.0f, 0.0f),
+                    V2F32(texture_size.x, texture_size.y)),
+              texture);
 }
