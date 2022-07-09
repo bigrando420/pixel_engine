@@ -34,6 +34,7 @@ typedef enum PixelType
     PIXEL_TYPE_undefined = 0,
     // 64
     PIXEL_TYPE_air = PIXEL_FLAG_air_lol,
+    // 399
     PIXEL_TYPE_sand = (
                        PIXEL_FLAG_gravity
                        | PIXEL_FLAG_move_diagonal
@@ -59,6 +60,7 @@ typedef enum PixelType
 typedef struct Pixel
 {
     U32 id;
+    B8 has_been_updated;
     PixelFlags flags;
     Vec2F32 vel;
     
@@ -115,13 +117,12 @@ function PixelType GetPixelType(Pixel *pixel);
 function void SetPixelType(Pixel *pixel, PixelType type);
 
 function void CameraUpdate(Vec2F32 *cam, Vec2F32 axis_input);
+function void ApplyWorldTransfromOrSomeShit(Rng2F32 *rect);
 
 // NOTE(randy): should I add chunk in front of this so it's clear that it's a sub-set?
 // I think so.
 function void PixelStep(Chunk *chunk, Pixel *pixel, Vec2S32 local_pos);
-function Pixel *PixelAtRelativeOffset(Chunk *chunk, Pixel *relative_pixel, Vec2S32 offset);
-
-function Vec2S32 PixelDeriveLocalLocation(Chunk *chunk, Pixel *pixel);
+function Pixel *PixelAtRelativeOffset(Chunk *chunk, Pixel *relative_pixel, Vec2S32 rel_pixel_pos, Vec2S32 offset);
 
 function void ChunkUpdateActive();
 function void ChunkUpdate(Chunk *chunk);

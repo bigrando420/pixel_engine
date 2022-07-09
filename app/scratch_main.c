@@ -23,7 +23,8 @@ S_Open(APP_Window *window)
     SetDefaultStage();
     
     ChunkInitAtLoc(V2S32(0, 0));
-    ChunkInitAtLoc(V2S32(0, 1));
+    ChunkInitAtLoc(V2S32(0, -1));
+    ChunkInitAtLoc(V2S32(0, -2));
     //ChunkInitAtLoc(V2S32(1, 0));
     //ChunkInitAtLoc(V2S32(3, 5));
     
@@ -212,6 +213,7 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
         drip_override = !drip_override;
     }
 #if DRIP
+    //@drip
     // yooooo we got the drip drip
     // yuh yuh
     Pixel *top_middle_px = &state->chunks[0].pixels[CHUNK_SIZE-1][CHUNK_SIZE / 2];
@@ -219,6 +221,7 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
         update_count % DRIP_SPEED == 0)
     {
         top_middle_px->flags = PIXEL_TYPE_sand;
+        //drip_override = 0;
     }
 #endif
     
@@ -255,10 +258,21 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
     #endif
      */
     
-    
+    //@render
     DR_Bucket bucket = {0};
-    // TODO(randy): bg rect
+    
+    Rng2F32 window_rect = OS_ClientRectFromWindow(window->handle);
+    
+    Rng2F32 render_rect = R2F32(V2F32(100.0f, 100.0f),
+                                V2F32(200.0f,
+                                      200.0f));
+    
+    ApplyWorldTransfromOrSomeShit(&render_rect);
+    
+    DR_Rect(&bucket, render_rect, V4F32(1.0f, 1.0f, 1.0f, 1.0f));
+    
     ChunkRenderActive(&bucket);
+    
     DR_Submit(window->window_equip, bucket.cmds);
     
     update_count++;
@@ -389,45 +403,6 @@ function void StepPixelSimulation()
     ChunkUpdateActive();
 }
 
-
-#if 0
-else
-{
-    // move right or left
-    U8 dispersion_rate = 5;
-    Pixel *move_to = PixelAt(x - dispersion_rate * (rand() % 2 == 0 ? 1 : -1), y);
-    
-    Vec2S32 move_to_location = GetPixelLocation(move_to);
-    
-    Vec2S32 pixels_in_line[16];
-    U32 count = 0;
-    DrawLineAtoB(V2S32(x,y), move_to_location, pixels_in_line, &count, 16);
-    
-    Pixel *last_good_pixel = 0;
-    for (int i = 1; i < count; i++)
-    {
-        Vec2S32 loc = pixels_in_line[i];
-        Pixel *line_pixel = PixelAt(loc.x, loc.y);
-        if (line_pixel->type == PIXEL_TYPE_air)
-        {
-            last_good_pixel = line_pixel;
-            continue;
-        }
-        else
-        {
-            break;
-        }
-    }
-    
-    if (last_good_pixel)
-    {
-        SwapPixels(pixel, last_good_pixel);
-    }
-}
-#endif
-
-
-
 // NOTE(randy): "adapted" from https://gist.github.com/bert/1085538
 function void DrawLineAtoB(Vec2S32 a, Vec2S32 b, Vec2S32* dest_arr, U32* dest_count, U32 max_count)
 {
@@ -500,6 +475,7 @@ function void SetDefaultStage()
      */
 }
 
+/* 
 function Vec2S32 PixelDeriveLocalLocation(Chunk *chunk, Pixel *pixel)
 {
     // TODO(randy): this logic ain't right, fix it
@@ -509,26 +485,72 @@ function Vec2S32 PixelDeriveLocalLocation(Chunk *chunk, Pixel *pixel)
     
     return V2S32(x, y);
 }
+ */
 
-function Pixel *PixelAtRelativeOffset(Chunk *chunk, Pixel *relative_pixel, Vec2S32 offset)
+function Pixel *PixelAtAbsolutePos(Vec2S32 pos)
 {
-    Vec2S32 local_pos = PixelDeriveLocalLocation(chunk, relative_pixel);
+    Vec2S32 chunk_loc = V2S32(floorf((F32)pos.x / (F32)CHUNK_SIZE),
+                              floorf((F32)pos.y / (F32)CHUNK_SIZE));
     
-    if (local_pos.x + offset.x >= 0 &&
-        local_pos.y + offset.y < CHUNK_SIZE)
+    for (int i = 0; i < MAX_ACTIVE_CHUNKS; i++)
     {
-        return &chunk->pixels[local_pos.y + offset.y][local_pos.x + offset.x];
+        Chunk *chunk = &state->chunks[i];
+        if (chunk->valid &&
+            chunk->loc.x == chunk_loc.x &&
+            chunk->loc.y == chunk_loc.y)
+        {
+            Vec2S32 a = V2S32(abs(pos.x) % CHUNK_SIZE,
+                              abs(pos.y) % CHUNK_SIZE);
+            
+            // NOTE(randy): invert if it's negative, to get the correct index
+            if (pos.x < 0)
+            {
+                a.x = CHUNK_SIZE - a.x;
+            }
+            if (pos.y < 0)
+            {
+                a.y = CHUNK_SIZE - a.y;
+            }
+            
+            return &chunk->pixels[a.y][a.x];
+        }
+    }
+    
+    NotImplemented;
+    // NOTE(randy): chunk doesn't exist
+    return 0;
+}
+
+function Pixel *PixelAtRelativeOffset(Chunk *chunk, Pixel *relative_pixel, Vec2S32 rel_pixel_pos, Vec2S32 offset)
+{
+    if (rel_pixel_pos.x + offset.x >= 0 &&
+        rel_pixel_pos.x + offset.x < CHUNK_SIZE &&
+        rel_pixel_pos.y + offset.y >= 0 &&
+        rel_pixel_pos.y + offset.y < CHUNK_SIZE)
+    {
+        return &chunk->pixels[rel_pixel_pos.y + offset.y][rel_pixel_pos.x + offset.x];
     }
     else
     {
         // it's in another chunk
-        // TODO(randy): 
-        return 0;
+        
+        // get the absolute position
+        Vec2S32 pixel_at_abs_pos = V2S32(chunk->loc.x * CHUNK_SIZE + rel_pixel_pos.x + offset.x,
+                                         chunk->loc.y * CHUNK_SIZE + rel_pixel_pos.y + offset.y);
+        
+        Pixel *pxl = PixelAtAbsolutePos(pixel_at_abs_pos);
+        
+        return pxl;
     }
 }
 
 function void PixelStep(Chunk *chunk, Pixel *pixel, Vec2S32 local_pos)
 {
+    if (pixel->has_been_updated)
+        return;
+    
+    pixel->has_been_updated = 1;
+    
     B8 has_moved = 0;
     
     B8 is_falling_check = ((pixel->flags & PIXEL_FLAG_inertia) ? pixel->is_falling : 1);
@@ -536,29 +558,32 @@ function void PixelStep(Chunk *chunk, Pixel *pixel, Vec2S32 local_pos)
     //~ Gravity
     if (pixel->flags & PIXEL_FLAG_gravity)
     {
-        Pixel *pixel_below = PixelAtRelativeOffset(chunk, pixel, V2S32(0, -1));
+        Pixel *pixel_below = PixelAtRelativeOffset(chunk, pixel, local_pos, V2S32(0, -1));
         
         if (CanPixelMoveTo(pixel, pixel_below))
         {
-            const F32 gravity = 0.4f;
+            const F32 gravity = 0.4f * 5;
             pixel->vel.y -= gravity;
             
             const max_speed = 10.0f;
             pixel->vel.y = Min(pixel->vel.y, max_speed);
             
             Vec2S32 from_loc = local_pos;
-            Vec2S32 to_loc = V2S32(local_pos.x, local_pos.y + ceilf(pixel->vel.y));
-            // Vec2S32 to_loc = V2S32(local_pos.x, local_pos.y - 1 + pixel->vel.y);
+            //Vec2S32 to_loc = V2S32(local_pos.x, local_pos.y - 1 + pixel->vel.y);
+            Vec2S32 to_loc = V2S32(local_pos.x, local_pos.y - 5);
             
             Vec2S32 inter_pixels[16];
             U32 count = 0;
             DrawLineAtoB(from_loc, to_loc, inter_pixels, &count, 16);
             
+            // TODO(randy): for some reason it's not travelling the full 5 when it hits the chunk border
+            
             Pixel *last_good_pixel = 0;
             for (int i = 1; i < count; i++)
             {
                 Vec2S32 pos = inter_pixels[i];
-                Pixel *inter_pixel = PixelAtRelativeOffset(chunk, pixel, pos);
+                Pixel *inter_pixel = PixelAtRelativeOffset(chunk, pixel, local_pos, V2S32(pos.x - local_pos.x,
+                                                                                          pos.y - local_pos.y));
                 
                 if (CanPixelMoveTo(pixel, inter_pixel))
                 {
@@ -843,6 +868,21 @@ function Chunk *ChunkInitAtLoc(Vec2S32 loc)
 
 function void ChunkUpdateActive()
 {
+    // clear updates from last frame
+    for (int i = 0; i < MAX_ACTIVE_CHUNKS; i++)
+    {
+        Chunk *chunk = &state->chunks[i];
+        if (chunk->valid)
+        {
+            for (int y = 0; y < CHUNK_SIZE; y++)
+                for (int x = 0; x < CHUNK_SIZE; x++)
+            {
+                Pixel *pixel = &chunk->pixels[y][x];
+                pixel->has_been_updated = 0;
+            }
+        }
+    }
+    
     for (int i = 0; i < MAX_ACTIVE_CHUNKS; i++)
     {
         Chunk *next_chunk = &state->chunks[i];
@@ -855,6 +895,7 @@ function void ChunkUpdateActive()
 
 function void ChunkUpdate(Chunk *chunk)
 {
+    // randomise x
     S32 x_pixels[CHUNK_SIZE];
     for (int i = 0; i < CHUNK_SIZE; i++)
     {
@@ -862,6 +903,7 @@ function void ChunkUpdate(Chunk *chunk)
     }
     ShuffleArray(x_pixels, CHUNK_SIZE);
     
+    // step all pixels
     for (int y = 0; y < CHUNK_SIZE; y++)
     {
         for (int x = 0; x < CHUNK_SIZE; x++)
@@ -977,10 +1019,12 @@ function void ChunkRender(Chunk *chunk, DR_Bucket *bucket)
                                 V2F32(chunk_render_size,
                                       chunk_render_size));
     
-    render_rect = Shift2F32(render_rect, V2F32(chunk->loc.x * chunk_render_size,
-                                               chunk->loc.y * chunk_render_size));
-    render_rect = Shift2F32(render_rect, state->camera);
+    render_rect = Shift2F32(render_rect, V2F32(chunk->loc.x * chunk_render_size * 1.005f,
+                                               chunk->loc.y * chunk_render_size * 1.005f));
     
+    ApplyWorldTransfromOrSomeShit(&render_rect);
+    
+    // TODO(randy): it's being updated twice?
     
     DR_Sprite(bucket,
               V4F32(1.0f, 1.0f, 1.0f, 1.0f),
@@ -988,4 +1032,21 @@ function void ChunkRender(Chunk *chunk, DR_Bucket *bucket)
               R2F32(V2F32(0.0f, 0.0f),
                     V2F32(texture_size.x, texture_size.y)),
               texture);
+}
+
+function void ApplyWorldTransfromOrSomeShit(Rng2F32 *rect)
+{
+    // derived from ClientRectFromWindow
+    const F32 window_height = 664.0f;
+    
+    // NOTE(randy): Flip the Y so it's UP instead of the screenspace down
+    rect->min.y = (window_height - rect->min.y);
+    rect->max.y = (window_height - rect->max.y);
+    
+    F32 min = rect->min.y;
+    rect->min.y = rect->max.y;
+    rect->max.y = min;
+    
+    // NOTE(randy): apply camera
+    *rect = Shift2F32(*rect, state->camera);
 }
