@@ -129,6 +129,7 @@ function void ChunkUpdate(Chunk *chunk);
 function void ChunkRenderActive(DR_Bucket *bucket);
 function void ChunkRender(Chunk *chunk, DR_Bucket *bucket);
 function Chunk *ChunkInitAtLoc(Vec2S32 loc);
+function void ChunkSortActive();
 
 
 

@@ -22,11 +22,14 @@ S_Open(APP_Window *window)
     
     SetDefaultStage();
     
-    ChunkInitAtLoc(V2S32(0, 0));
     ChunkInitAtLoc(V2S32(0, -1));
+    ChunkInitAtLoc(V2S32(0, 0));
     ChunkInitAtLoc(V2S32(0, -2));
+    ChunkInitAtLoc(V2S32(0, 1));
     //ChunkInitAtLoc(V2S32(1, 0));
     //ChunkInitAtLoc(V2S32(3, 5));
+    
+    ChunkSortActive();
     
     return state;
 }
@@ -216,7 +219,7 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
     //@drip
     // yooooo we got the drip drip
     // yuh yuh
-    Pixel *top_middle_px = &state->chunks[0].pixels[CHUNK_SIZE-1][CHUNK_SIZE / 2];
+    Pixel *top_middle_px = &state->chunks[2].pixels[CHUNK_SIZE-1][CHUNK_SIZE / 2];
     if (drip_override &&
         update_count % DRIP_SPEED == 0)
     {
@@ -562,21 +565,22 @@ function void PixelStep(Chunk *chunk, Pixel *pixel, Vec2S32 local_pos)
         
         if (CanPixelMoveTo(pixel, pixel_below))
         {
-            const F32 gravity = 0.4f * 5;
+            const F32 gravity = 0.4f;
             pixel->vel.y -= gravity;
             
             const max_speed = 10.0f;
             pixel->vel.y = Min(pixel->vel.y, max_speed);
             
             Vec2S32 from_loc = local_pos;
-            //Vec2S32 to_loc = V2S32(local_pos.x, local_pos.y - 1 + pixel->vel.y);
-            Vec2S32 to_loc = V2S32(local_pos.x, local_pos.y - 5);
+            Vec2S32 to_loc = V2S32(local_pos.x, local_pos.y - 1 + pixel->vel.y);
+            //Vec2S32 to_loc = V2S32(local_pos.x, local_pos.y - 5);
             
             Vec2S32 inter_pixels[16];
             U32 count = 0;
             DrawLineAtoB(from_loc, to_loc, inter_pixels, &count, 16);
             
             // TODO(randy): for some reason it's not travelling the full 5 when it hits the chunk border
+            // NOTE(randy): I think it's because of the update order.
             
             Pixel *last_good_pixel = 0;
             for (int i = 1; i < count; i++)
@@ -864,6 +868,26 @@ function Chunk *ChunkInitAtLoc(Vec2S32 loc)
     }
     
     return 0;
+}
+
+function void ChunkSortActive()
+{
+    // NOTE(randy): Sort chunks so it's from the bottom up
+    for (int i = 0; i < MAX_ACTIVE_CHUNKS - 1; i++)
+    {
+        for (int j = 0; j < MAX_ACTIVE_CHUNKS - 1 - i; j++)
+        {
+            Chunk *a = &state->chunks[j];
+            Chunk *b = &state->chunks[j + 1];
+            
+            if (a->loc.y > b->loc.y)
+            {
+                Chunk temp = *a;
+                *a = *b;
+                *b = temp;
+            }
+        }
+    }
 }
 
 function void ChunkUpdateActive()
