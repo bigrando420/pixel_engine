@@ -519,8 +519,9 @@ function Pixel *PixelAtAbsolutePos(Vec2S32 pos)
         }
     }
     
-    NotImplemented;
+    // NotImplemented;
     // NOTE(randy): chunk doesn't exist
+    // Do I just make it standard that the return pixel is null?
     return 0;
 }
 
@@ -547,6 +548,17 @@ function Pixel *PixelAtRelativeOffset(Chunk *chunk, Pixel *relative_pixel, Vec2S
     }
 }
 
+function void PixelClear(Pixel *pxl)
+{
+    U32 id = pxl->id;
+    
+    Pixel pxl_clear = {0};
+    pxl_clear.id = id;
+    SetPixelType(&pxl_clear, PIXEL_TYPE_air);
+    
+    *pxl = pxl_clear;
+}
+
 function void PixelStep(Chunk *chunk, Pixel *pixel, Vec2S32 local_pos)
 {
     if (pixel->has_been_updated)
@@ -561,54 +573,51 @@ function void PixelStep(Chunk *chunk, Pixel *pixel, Vec2S32 local_pos)
     //~ Gravity
     if (pixel->flags & PIXEL_FLAG_gravity)
     {
-        Pixel *pixel_below = PixelAtRelativeOffset(chunk, pixel, local_pos, V2S32(0, -1));
+        const F32 gravity = 0.4f;
+        pixel->vel.y -= gravity;
         
-        if (CanPixelMoveTo(pixel, pixel_below))
+        const max_speed = 10.0f;
+        pixel->vel.y = Min(pixel->vel.y, max_speed);
+        
+        Vec2S32 from_loc = local_pos;
+        Vec2S32 to_loc = V2S32(local_pos.x, local_pos.y - 1 + pixel->vel.y);
+        //Vec2S32 to_loc = V2S32(local_pos.x, local_pos.y - 5);
+        
+        Vec2S32 inter_pixels[16];
+        U32 count = 0;
+        DrawLineAtoB(from_loc, to_loc, inter_pixels, &count, 16);
+        
+        Pixel *last_good_pixel = 0;
+        for (int i = 1; i < count; i++)
         {
-            const F32 gravity = 0.4f;
-            pixel->vel.y -= gravity;
+            Vec2S32 pos = inter_pixels[i];
+            Pixel *inter_pixel = PixelAtRelativeOffset(chunk, pixel, local_pos, V2S32(pos.x - local_pos.x,
+                                                                                      pos.y - local_pos.y));
             
-            const max_speed = 10.0f;
-            pixel->vel.y = Min(pixel->vel.y, max_speed);
-            
-            Vec2S32 from_loc = local_pos;
-            Vec2S32 to_loc = V2S32(local_pos.x, local_pos.y - 1 + pixel->vel.y);
-            //Vec2S32 to_loc = V2S32(local_pos.x, local_pos.y - 5);
-            
-            Vec2S32 inter_pixels[16];
-            U32 count = 0;
-            DrawLineAtoB(from_loc, to_loc, inter_pixels, &count, 16);
-            
-            // TODO(randy): for some reason it's not travelling the full 5 when it hits the chunk border
-            // NOTE(randy): I think it's because of the update order.
-            
-            Pixel *last_good_pixel = 0;
-            for (int i = 1; i < count; i++)
+            if (!inter_pixel)
             {
-                Vec2S32 pos = inter_pixels[i];
-                Pixel *inter_pixel = PixelAtRelativeOffset(chunk, pixel, local_pos, V2S32(pos.x - local_pos.x,
-                                                                                          pos.y - local_pos.y));
-                
-                if (CanPixelMoveTo(pixel, inter_pixel))
-                {
-                    last_good_pixel = inter_pixel;
-                }
-                else
-                {
-                    break;
-                }
+                // NOTE(randy): moved into invalid chunk, yeet it.
+                PixelClear(pixel);
+                return;
             }
             
-            if (last_good_pixel)
+            if (CanPixelMoveTo(pixel, inter_pixel))
             {
-                SwapPixels(pixel, last_good_pixel, &pixel);
-                has_moved = 1;
+                last_good_pixel = inter_pixel;
             }
+            else
+            {
+                break;
+            }
+        }
+        
+        if (last_good_pixel)
+        {
+            SwapPixels(pixel, last_good_pixel, &pixel);
+            has_moved = 1;
         }
         else
         {
-            // can't move down
-            // transfer velocity?
             if ((pixel->flags & PIXEL_FLAG_transfer_y_vel_to_x_vel_when_splat_lol) &&
                 !F32Compare(pixel->vel.y, 0.0f, 0.01f) &&
                 F32Compare(pixel->vel.x, 0.0f, 0.01f))
