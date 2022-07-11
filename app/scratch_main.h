@@ -54,9 +54,6 @@ typedef enum PixelType
     PIXEL_TYPE_MAX,
 } PixelType;
 
-// NOTE(randy): need a better way of giving the pixel x velocity, especially as water, since it's always got that potential
-// TODO(randy): seed it with some kind of initial velocity right away?
-
 typedef struct Pixel
 {
     U32 id;
@@ -74,7 +71,7 @@ typedef struct Pixel
 typedef struct Chunk
 {
     B8 valid; // scuffed, this'll become implicit when/if I move to a hash map
-    Vec2S32 loc;
+    Vec2S32 pos;
     Pixel pixels[CHUNK_SIZE][CHUNK_SIZE];
     Vec4U8 temp_pixel_texture[CHUNK_SIZE][CHUNK_SIZE]; // It'd be cheaper to recalc every frame
 } Chunk;
@@ -124,13 +121,17 @@ function void ApplyWorldTransfromOrSomeShit(Rng2F32 *rect);
 function void PixelStep(Chunk *chunk, Pixel *pixel, Vec2S32 local_pos);
 function Pixel *PixelAtRelativeOffset(Chunk *chunk, Pixel *relative_pixel, Vec2S32 rel_pixel_pos, Vec2S32 offset);
 
+function void ChunkUnload(Chunk *chunk);
+function Chunk *ChunkLoadAt(Vec2S32 pos);
 function void ChunkUpdateActive();
 function void ChunkUpdate(Chunk *chunk);
 function void ChunkRenderActive(DR_Bucket *bucket);
 function void ChunkRender(Chunk *chunk, DR_Bucket *bucket);
-function Chunk *ChunkInitAtLoc(Vec2S32 loc);
+function Chunk *ChunkInitAtLoc(Vec2S32 pos);
 function void ChunkSortActive();
 
+function void UnloadWorld();
+function void LoadWorld();
 
 
 //~ NOTE(randy): Prototype controls

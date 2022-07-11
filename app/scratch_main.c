@@ -25,9 +25,12 @@ S_Open(APP_Window *window)
     ChunkInitAtLoc(V2S32(0, -1));
     ChunkInitAtLoc(V2S32(0, 0));
     ChunkInitAtLoc(V2S32(0, -2));
-    ChunkInitAtLoc(V2S32(0, 1));
+    Chunk *test = ChunkInitAtLoc(V2S32(0, 1));
     //ChunkInitAtLoc(V2S32(1, 0));
     //ChunkInitAtLoc(V2S32(3, 5));
+    
+    ChunkUnload(test);
+    ChunkLoadAt(V2S32(0, 1));
     
     ChunkSortActive();
     
@@ -188,6 +191,15 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
                 
                 state->selected_pixel = pixel->id;
          */
+    }
+    
+    if(OS_KeyPress(events, window->handle, OS_Key_J, 0))
+    {
+        UnloadWorld();
+    }
+    if(OS_KeyPress(events, window->handle, OS_Key_K, 0))
+    {
+        LoadWorld();
     }
     
     if(OS_KeyPress(events, window->handle, OS_Key_Z, 0))
@@ -499,8 +511,8 @@ function Pixel *PixelAtAbsolutePos(Vec2S32 pos)
     {
         Chunk *chunk = &state->chunks[i];
         if (chunk->valid &&
-            chunk->loc.x == chunk_loc.x &&
-            chunk->loc.y == chunk_loc.y)
+            chunk->pos.x == chunk_loc.x &&
+            chunk->pos.y == chunk_loc.y)
         {
             Vec2S32 a = V2S32(abs(pos.x) % CHUNK_SIZE,
                               abs(pos.y) % CHUNK_SIZE);
@@ -539,8 +551,8 @@ function Pixel *PixelAtRelativeOffset(Chunk *chunk, Pixel *relative_pixel, Vec2S
         // it's in another chunk
         
         // get the absolute position
-        Vec2S32 pixel_at_abs_pos = V2S32(chunk->loc.x * CHUNK_SIZE + rel_pixel_pos.x + offset.x,
-                                         chunk->loc.y * CHUNK_SIZE + rel_pixel_pos.y + offset.y);
+        Vec2S32 pixel_at_abs_pos = V2S32(chunk->pos.x * CHUNK_SIZE + rel_pixel_pos.x + offset.x,
+                                         chunk->pos.y * CHUNK_SIZE + rel_pixel_pos.y + offset.y);
         
         Pixel *pxl = PixelAtAbsolutePos(pixel_at_abs_pos);
         
@@ -844,17 +856,88 @@ function void ChunkSetDefaultPixels(Chunk *chunk)
     {
         Pixel *pxl = &chunk->pixels[y][x];
         SetPixelType(pxl, PIXEL_TYPE_air);
+        pxl->id = x + y * CHUNK_SIZE;
     }
 }
 
-function Chunk *ChunkInitAtLoc(Vec2S32 loc)
+function Chunk *ChunkLoadAt(Vec2S32 pos)
+{
+    char chunk_fname[256];
+    sprintf(chunk_fname, "%i,%i.chunk", pos.x, pos.y);
+    char chunk_path[256];
+    sprintf(chunk_path, "/balls/%s", chunk_fname);
+    
+    FILE *f = fopen(chunk_path, "rb");
+    if (!f)
+        return 0;
+    
+    Chunk *chunk = ChunkInitAtLoc(pos);
+    fread(&chunk->pos, sizeof(chunk->pos), 1, f);
+    fread(chunk->pixels, sizeof(chunk->pixels), 1, f);
+    
+    fclose(f);
+    return chunk;
+}
+
+function void ChunkUnload(Chunk *chunk)
+{
+    Assert(chunk && chunk->valid);
+    
+    OS_MakeDirectory(Str8C("/balls"));
+    
+    // NOTE(randy): chunk path at POSX,POSY.chunk
+    char chunk_fname[256];
+    sprintf(chunk_fname, "%i,%i.chunk", chunk->pos.x, chunk->pos.y);
+    char chunk_path[256];
+    sprintf(chunk_path, "/balls/%s", chunk_fname);
+    
+    // NOTE(randy): CHUNK DATA SPEC
+    FILE *f = fopen(chunk_path, "wb");
+    fwrite(&chunk->pos, sizeof(chunk->pos), 1, f); // implicit in name but eh, who cares
+    fwrite(chunk->pixels, sizeof(chunk->pixels), 1, f);
+    fclose(f);
+    
+    MemoryZeroStruct(chunk);
+}
+
+function void UnloadWorld()
+{
+    for (int i = 0; i < MAX_ACTIVE_CHUNKS; i++)
+    {
+        Chunk *chunk = &state->chunks[i];
+        if (chunk->valid)
+            ChunkUnload(chunk);
+    }
+}
+
+function void LoadWorld()
+{
+    // TODO(randy): get chunks in viewport or some shit
+    
+    Vec2S32 list_of_chunks[] =
+    {
+        V2S32(0, -1),
+        V2S32(0, 0),
+        V2S32(0, -2),
+        V2S32(0, 1),
+        V2S32(1, 0),
+        V2S32(3, 5),
+    };
+    S32 count = sizeof(list_of_chunks) / sizeof(Vec2S32);
+    for (int i = 0; i < count; i++)
+    {
+        ChunkLoadAt(list_of_chunks[i]);
+    }
+}
+
+function Chunk *ChunkInitAtLoc(Vec2S32 pos)
 {
     for (int i = 0; i < MAX_ACTIVE_CHUNKS; i++)
     {
         Chunk *next_chunk = &state->chunks[i];
         if (next_chunk->valid &&
-            next_chunk->loc.x == loc.x &&
-            next_chunk->loc.y == loc.y)
+            next_chunk->pos.x == pos.x &&
+            next_chunk->pos.y == pos.y)
         {
             // already exists
             Assert(0);
@@ -869,7 +952,7 @@ function Chunk *ChunkInitAtLoc(Vec2S32 loc)
         if (!chunk->valid)
         {
             chunk->valid = 1;
-            chunk->loc = loc;
+            chunk->pos = pos;
             ChunkSetDefaultPixels(chunk);
             
             return chunk;
@@ -889,7 +972,7 @@ function void ChunkSortActive()
             Chunk *a = &state->chunks[j];
             Chunk *b = &state->chunks[j + 1];
             
-            if (a->loc.y > b->loc.y)
+            if (a->pos.y > b->pos.y)
             {
                 Chunk temp = *a;
                 *a = *b;
@@ -1052,8 +1135,8 @@ function void ChunkRender(Chunk *chunk, DR_Bucket *bucket)
                                 V2F32(chunk_render_size,
                                       chunk_render_size));
     
-    render_rect = Shift2F32(render_rect, V2F32(chunk->loc.x * chunk_render_size * 1.005f,
-                                               chunk->loc.y * chunk_render_size * 1.005f));
+    render_rect = Shift2F32(render_rect, V2F32(chunk->pos.x * chunk_render_size * 1.005f,
+                                               chunk->pos.y * chunk_render_size * 1.005f));
     
     ApplyWorldTransfromOrSomeShit(&render_rect);
     
