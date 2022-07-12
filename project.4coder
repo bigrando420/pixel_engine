@@ -41,7 +41,7 @@ command_list =
         .cursor_at_end = false,
         .cmd =
         {
-            { "build_scratch.bat", .os = "win" },
+            { "build.bat", .os = "win" },
         },
     },
     

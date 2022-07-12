@@ -24,15 +24,11 @@ S_Open(APP_Window *window)
     
     SetDefaultStage();
     
-    ChunkInitAtLoc(V2S32(0, -1));
     ChunkInitAtLoc(V2S32(0, 0));
-    ChunkInitAtLoc(V2S32(0, -2));
-    Chunk *test = ChunkInitAtLoc(V2S32(0, 1));
-    //ChunkInitAtLoc(V2S32(1, 0));
-    //ChunkInitAtLoc(V2S32(3, 5));
-    
-    ChunkUnload(test);
-    ChunkLoadAt(V2S32(0, 1));
+    ChunkInitAtLoc(V2S32(1, 0));
+    ChunkInitAtLoc(V2S32(1, 1));
+    ChunkInitAtLoc(V2S32(0, -1));
+    ChunkInitAtLoc(V2S32(-1, -2));
     
     ChunkSortActive();
     
@@ -275,34 +271,7 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
     #endif
      */
     
-    //@render
-    DR_Bucket bucket = {0};
-    
-    
-    Vec2S32 chunks[32];
-    U32 count;
-    ChunksInRect(CameraGetViewRect(), chunks, 32, &count);
-    
-    /* 
-        Rng2F32 cam_rect = CameraGetViewRect();
-        DR_Rect(&bucket, cam_rect, V4F32(1.0f, 0.0f, 1.0f, 1.0f));
-     */
-    
-    
-    // test square
-    /* 
-        Rng2F32 render_rect = R2F32(V2F32(100.0f, 100.0f),
-                                    V2F32(200.0f,
-                                          200.0f));
-        ApplyWorldTransfromOrSomeShit(&render_rect);
-        DR_Rect(&bucket, render_rect, V4F32(1.0f, 1.0f, 1.0f, 1.0f));
-     */
-    
-    
-    ChunkRenderActive(&bucket);
-    
-    DR_Submit(window->window_equip, bucket.cmds);
-    
+    Render();
     update_count++;
 }
 
@@ -942,20 +911,31 @@ function void LoadWorld()
     }
 }
 
+// do we want the rect in worldspace - so Y positive is up?
+// I'd say so, it makes the most intuative sense
+// can always revert this?
+// it's already in world space?
 function Rng2F32 CameraGetViewRect()
 {
-    Rng2F32 window_rect = OS_ClientRectFromWindow(state->window->handle);
-    //ApplyWorldTransfromOrSomeShit(&window_rect);
+    Rng2F32 rect = OS_ClientRectFromWindow(state->window->handle);
     
-    // TODO(randy): this ain't right
-    // camera view should be something around 100, 64 because of the zoom in
+    rect = Shift2F32(rect, V2F32(-state->camera.x, state->camera.y));
     
-    //window_rect = Pad2F32(window_rect, -100);
+    rect.min.x /= state->camera_zoom;
+    rect.min.y /= state->camera_zoom;
+    rect.max.x /= state->camera_zoom;
+    rect.max.y /= state->camera_zoom;
     
-    return window_rect;
+    return rect;
 }
 
-// TODO(randy): ChunkRenderDebugAt
+function void ChunkRenderDebugAt(Vec2S32 pos)
+{
+    if (state->render_debug_chunks_count + 1 > DEBUG_CHUNK_COUNT)
+        return;
+    
+    state->render_debug_chunks[state->render_debug_chunks_count++] = pos;
+}
 
 function Vec2S32 ChunkGetPosFromWorldPos(Vec2F32 world_pos)
 {
@@ -965,12 +945,23 @@ function Vec2S32 ChunkGetPosFromWorldPos(Vec2F32 world_pos)
 
 function void ChunksInRect(Rng2F32 rect, Vec2S32 *chunk_arr, U32 chunk_arr_max, U32 *count)
 {
-    /* 
-        Vec2S32 top_left = ChunkGetPosFromWorldPos(rect.min);
-        Vec2S32 bottom_right = ChunkGetPosFromWorldPos(rect.max);
-     */
+    *count = 0;
+    rect = Pad2F32(rect, -100);
     
-    int i = 0;
+    Vec2S32 bottom_left = ChunkGetPosFromWorldPos(rect.min);
+    Vec2S32 top_right = ChunkGetPosFromWorldPos(rect.max);
+    
+    for (int x = bottom_left.x; x <= top_right.x; x++)
+    {
+        for (int y = bottom_left.y; y <= top_right.y; y++)
+        {
+            if (*count + 1 > chunk_arr_max)
+                return;
+            
+            Vec2S32 chunk = V2S32(x, y);
+            chunk_arr[(*count)++] = chunk;
+        }
+    }
 }
 
 function Chunk *ChunkInitAtLoc(Vec2S32 pos)
@@ -1074,6 +1065,57 @@ function void ChunkUpdate(Chunk *chunk)
     }
 }
 
+// @render
+function void Render()
+{
+    DR_Bucket bucket = {0};
+    
+    /* 
+        Rng2F32 cam_rect = CameraGetViewRect();
+        DR_Rect(&bucket, cam_rect, V4F32(1.0f, 0.0f, 1.0f, 1.0f));
+     */
+    // test square
+    /* 
+        Rng2F32 render_rect = R2F32(V2F32(100.0f, 100.0f),
+                                    V2F32(200.0f,
+                                          200.0f));
+        ApplyWorldTransfromOrSomeShit(&render_rect);
+        DR_Rect(&bucket, render_rect, V4F32(1.0f, 1.0f, 1.0f, 1.0f));
+     */
+    
+    ChunkRenderActive(&bucket);
+    
+    // NOTE(randy): queue up all chunks in view for render
+    // separated out bc I might still want to do other specific debug chunk renders in future
+    Vec2S32 chunks[32];
+    U32 count;
+    ChunksInRect(CameraGetViewRect(), chunks, 32, &count);
+    for (int i = 0; i < count; i++)
+    {
+        ChunkRenderDebugAt(chunks[i]);
+    }
+    
+    
+    // NOTE(randy): render debug chunks
+    {
+        for (int i = 0; i < state->render_debug_chunks_count; i++)
+        {
+            Vec2S32 pos = state->render_debug_chunks[i];
+            
+            Rng2F32 render_rect = R2F32(V2F32(0.0f, 0.0f),
+                                        V2F32(CHUNK_SIZE,
+                                              CHUNK_SIZE));
+            render_rect = Shift2F32(render_rect, V2F32(pos.x * CHUNK_SIZE * 1.005f,
+                                                       pos.y * CHUNK_SIZE * 1.005f));
+            ApplyWorldTransfromOrSomeShit(&render_rect);
+            
+            DR_Rect_B(&bucket, render_rect, V4F32(1.0f, 0.0f, 0.0f, 1.0f), 5.0f);
+        }
+        state->render_debug_chunks_count = 0;
+    }
+    
+    DR_Submit(state->window->window_equip, bucket.cmds);
+}
 
 function void ChunkRenderActive(DR_Bucket *bucket)
 {
@@ -1172,18 +1214,14 @@ function void ChunkRender(Chunk *chunk, DR_Bucket *bucket)
                                     Str8((U8*)chunk_texture_data, 
                                          sizeof(chunk_texture_data)));
     
-    F32 chunk_render_size = texture_size.x * state->camera_zoom;
-    
     Rng2F32 render_rect = R2F32(V2F32(0.0f, 0.0f),
-                                V2F32(chunk_render_size,
-                                      chunk_render_size));
+                                V2F32(CHUNK_SIZE,
+                                      CHUNK_SIZE));
     
-    render_rect = Shift2F32(render_rect, V2F32(chunk->pos.x * chunk_render_size * 1.005f,
-                                               chunk->pos.y * chunk_render_size * 1.005f));
-    
+    // shift into correct location
+    render_rect = Shift2F32(render_rect, V2F32(chunk->pos.x * CHUNK_SIZE * 1.005f,
+                                               chunk->pos.y * CHUNK_SIZE * 1.005f));
     ApplyWorldTransfromOrSomeShit(&render_rect);
-    
-    // TODO(randy): it's being updated twice?
     
     DR_Sprite(bucket,
               V4F32(1.0f, 1.0f, 1.0f, 1.0f),
@@ -1193,10 +1231,18 @@ function void ChunkRender(Chunk *chunk, DR_Bucket *bucket)
               texture);
 }
 
+// TODO(randy): rename
+// WorldSpaceToCameraSpace or some shit
 function void ApplyWorldTransfromOrSomeShit(Rng2F32 *rect)
 {
-    // derived from ClientRectFromWindow
-    const F32 window_height = 664.0f;
+    Rng2F32 window_rect = OS_ClientRectFromWindow(state->window->handle);
+    F32 window_height = window_rect.max.y;
+    
+    // NOTE(randy): scale
+    rect->min.x *= state->camera_zoom;
+    rect->min.y *= state->camera_zoom;
+    rect->max.x *= state->camera_zoom;
+    rect->max.y *= state->camera_zoom;
     
     // NOTE(randy): Flip the Y so it's UP instead of the screenspace down
     rect->min.y = (window_height - rect->min.y);
@@ -1206,6 +1252,6 @@ function void ApplyWorldTransfromOrSomeShit(Rng2F32 *rect)
     rect->min.y = rect->max.y;
     rect->max.y = min;
     
-    // NOTE(randy): apply camera
+    // NOTE(randy): apply camera translation
     *rect = Shift2F32(*rect, state->camera);
 }

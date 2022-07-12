@@ -76,6 +76,7 @@ typedef struct Chunk
     Vec4U8 temp_pixel_texture[CHUNK_SIZE][CHUNK_SIZE]; // It'd be cheaper to recalc every frame
 } Chunk;
 
+#define DEBUG_CHUNK_COUNT 256
 
 typedef struct S_State S_State;
 struct S_State
@@ -86,6 +87,8 @@ struct S_State
     B8 is_simulating;
     
     Chunk chunks[MAX_ACTIVE_CHUNKS];
+    Vec2S32 render_debug_chunks[DEBUG_CHUNK_COUNT];
+    S32 render_debug_chunks_count;
     
     //Pixel pixels[SIM_Y][SIM_X];
     //Vec4U8 pixel_render_data[SIM_Y][SIM_X];
@@ -137,6 +140,8 @@ function void ChunkSortActive();
 function void UnloadWorld();
 function void LoadWorld();
 
+function void Render();
+
 
 //~ NOTE(randy): Prototype controls
 #define FRICTION 0.1f
@@ -148,6 +153,6 @@ function void LoadWorld();
 
 #define BRUSH_PREVIEW 0
 
-#define DEFAULT_CAM_ZOOM 10
+#define DEFAULT_CAM_ZOOM 2
 
 #endif //SCRATCH_MAIN_H
