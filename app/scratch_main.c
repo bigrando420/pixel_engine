@@ -17,6 +17,8 @@ S_Open(APP_Window *window)
     state = PushStruct(arena, S_State);
     state->permanent_arena = arena;
     
+    state->window = window;
+    
     state->camera_zoom = DEFAULT_CAM_ZOOM;
     state->is_simulating = START_SIM_STRAIGHT_AWAY;
     
@@ -276,15 +278,26 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
     //@render
     DR_Bucket bucket = {0};
     
-    Rng2F32 window_rect = OS_ClientRectFromWindow(window->handle);
     
-    Rng2F32 render_rect = R2F32(V2F32(100.0f, 100.0f),
-                                V2F32(200.0f,
-                                      200.0f));
+    Vec2S32 chunks[32];
+    U32 count;
+    ChunksInRect(CameraGetViewRect(), chunks, 32, &count);
     
-    ApplyWorldTransfromOrSomeShit(&render_rect);
+    /* 
+        Rng2F32 cam_rect = CameraGetViewRect();
+        DR_Rect(&bucket, cam_rect, V4F32(1.0f, 0.0f, 1.0f, 1.0f));
+     */
     
-    DR_Rect(&bucket, render_rect, V4F32(1.0f, 1.0f, 1.0f, 1.0f));
+    
+    // test square
+    /* 
+        Rng2F32 render_rect = R2F32(V2F32(100.0f, 100.0f),
+                                    V2F32(200.0f,
+                                          200.0f));
+        ApplyWorldTransfromOrSomeShit(&render_rect);
+        DR_Rect(&bucket, render_rect, V4F32(1.0f, 1.0f, 1.0f, 1.0f));
+     */
+    
     
     ChunkRenderActive(&bucket);
     
@@ -504,8 +517,7 @@ function Vec2S32 PixelDeriveLocalLocation(Chunk *chunk, Pixel *pixel)
 
 function Pixel *PixelAtAbsolutePos(Vec2S32 pos)
 {
-    Vec2S32 chunk_loc = V2S32(floorf((F32)pos.x / (F32)CHUNK_SIZE),
-                              floorf((F32)pos.y / (F32)CHUNK_SIZE));
+    Vec2S32 chunk_loc = ChunkGetPosFromWorldPos(V2F32(pos.x, pos.y));
     
     for (int i = 0; i < MAX_ACTIVE_CHUNKS; i++)
     {
@@ -588,7 +600,7 @@ function void PixelStep(Chunk *chunk, Pixel *pixel, Vec2S32 local_pos)
         const F32 gravity = 0.4f;
         pixel->vel.y -= gravity;
         
-        const max_speed = 10.0f;
+        const F32 max_speed = 10.0f;
         pixel->vel.y = Min(pixel->vel.y, max_speed);
         
         Vec2S32 from_loc = local_pos;
@@ -836,7 +848,7 @@ function void ShuffleArray(int *array, size_t n)
 
 function PixelType GetPixelType(Pixel *pixel)
 {
-    return pixel->flags;
+    return (PixelType)pixel->flags;
 }
 
 function void SetPixelType(Pixel *pixel, PixelType type)
@@ -928,6 +940,37 @@ function void LoadWorld()
     {
         ChunkLoadAt(list_of_chunks[i]);
     }
+}
+
+function Rng2F32 CameraGetViewRect()
+{
+    Rng2F32 window_rect = OS_ClientRectFromWindow(state->window->handle);
+    //ApplyWorldTransfromOrSomeShit(&window_rect);
+    
+    // TODO(randy): this ain't right
+    // camera view should be something around 100, 64 because of the zoom in
+    
+    //window_rect = Pad2F32(window_rect, -100);
+    
+    return window_rect;
+}
+
+// TODO(randy): ChunkRenderDebugAt
+
+function Vec2S32 ChunkGetPosFromWorldPos(Vec2F32 world_pos)
+{
+    return V2S32(floorf((F32)world_pos.x / (F32)CHUNK_SIZE),
+                 floorf((F32)world_pos.y / (F32)CHUNK_SIZE));
+}
+
+function void ChunksInRect(Rng2F32 rect, Vec2S32 *chunk_arr, U32 chunk_arr_max, U32 *count)
+{
+    /* 
+        Vec2S32 top_left = ChunkGetPosFromWorldPos(rect.min);
+        Vec2S32 bottom_right = ChunkGetPosFromWorldPos(rect.max);
+     */
+    
+    int i = 0;
 }
 
 function Chunk *ChunkInitAtLoc(Vec2S32 pos)

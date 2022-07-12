@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <ProjectGuid>{4E548D82-29B4-4CBD-8154-13803CE7839B}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Makefile</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Makefile</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Makefile</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Makefile</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <NMakeBuildCommandLine>build.bat</NMakeBuildCommandLine>
+    <NMakeOutput>scratch.exe</NMakeOutput>
+    <NMakePreprocessorDefinitions>_DEBUG;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <NMakeBuildCommandLine>build.bat</NMakeBuildCommandLine>
+    <NMakeOutput>scratch.exe</NMakeOutput>
+    <NMakePreprocessorDefinitions>WIN32;_DEBUG;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <NMakeBuildCommandLine>build.bat</NMakeBuildCommandLine>
+    <NMakeOutput>scratch.exe</NMakeOutput>
+    <NMakePreprocessorDefinitions>WIN32;NDEBUG;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <NMakeBuildCommandLine>build.bat</NMakeBuildCommandLine>
+    <NMakeOutput>scratch.exe</NMakeOutput>
+    <NMakePreprocessorDefinitions>NDEBUG;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
+    <OutDir>$(ProjectDir)\build</OutDir>
+    <IntDir>$(ProjectDir)\build</IntDir>
+    <IncludePath>$(ProjectDir)app;$(ProjectDir)ts_headers;$(IncludePath)</IncludePath>
+    <NMakeIncludeSearchPath>$(NMakeIncludeSearchPath)</NMakeIncludeSearchPath>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="app\scratch_main.c" />
+    <ClCompile Include="ts_headers\os\os_entry_point.c" />
+    <ClCompile Include="ts_headers\os\win32\win32_entry_point.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="app\scratch_main.h" />
+    <ClInclude Include="app\ts_additions.h" />
+    <ClInclude Include="ts_headers\app\app_gfx.h" />
+    <ClInclude Include="ts_headers\base\base_ctx_crack.h" />
+    <ClInclude Include="ts_headers\base\base_inc.h" />
+    <ClInclude Include="ts_headers\base\base_math.h" />
+    <ClInclude Include="ts_headers\base\base_memory.h" />
+    <ClInclude Include="ts_headers\base\base_strings.h" />
+    <ClInclude Include="ts_headers\base\base_string_pattern.h" />
+    <ClInclude Include="ts_headers\base\base_tctx.h" />
+    <ClInclude Include="ts_headers\base\base_text_edit.h" />
+    <ClInclude Include="ts_headers\base\base_types.h" />
+    <ClInclude Include="ts_headers\base\base_value_intern.h" />
+    <ClInclude Include="ts_headers\base\md_helpers.h" />
+    <ClInclude Include="ts_headers\client\client.h" />
+    <ClInclude Include="ts_headers\client\client_main.h" />
+    <ClInclude Include="ts_headers\client\client_window.h" />
+    <ClInclude Include="ts_headers\client\commands.h" />
+    <ClInclude Include="ts_headers\client\generated\client.meta.h" />
+    <ClInclude Include="ts_headers\client\generated\client_window.meta.h" />
+    <ClInclude Include="ts_headers\client\generated\theme.meta.h" />
+    <ClInclude Include="ts_headers\client\theme.h" />
+    <ClInclude Include="ts_headers\codegen\codegen.h" />
+    <ClInclude Include="ts_headers\codegen\codegen_table.h" />
+    <ClInclude Include="ts_headers\config\config.h" />
+    <ClInclude Include="ts_headers\draw\draw.h" />
+    <ClInclude Include="ts_headers\editor\editor.h" />
+    <ClInclude Include="ts_headers\editor\generated\editor.meta.h" />
+    <ClInclude Include="ts_headers\engine_bundles\engine_full.h" />
+    <ClInclude Include="ts_headers\font_provider\dwrite\font_provider_dwrite.h" />
+    <ClInclude Include="ts_headers\font_provider\font_provider.h" />
+    <ClInclude Include="ts_headers\font_provider\stb\font_provider_stb.h" />
+    <ClInclude Include="ts_headers\os\generated\os.meta.h" />
+    <ClInclude Include="ts_headers\os\os_entry_point.h" />
+    <ClInclude Include="ts_headers\os\os_gfx.h" />
+    <ClInclude Include="ts_headers\os\os_inc.h" />
+    <ClInclude Include="ts_headers\os\os_main.h" />
+    <ClInclude Include="ts_headers\os\win32\win32_entry_point.h" />
+    <ClInclude Include="ts_headers\os\win32\win32_gfx.h" />
+    <ClInclude Include="ts_headers\os\win32\win32_main.h" />
+    <ClInclude Include="ts_headers\render\d3d11\generated\render_d3d11_shaders.meta.h" />
+    <ClInclude Include="ts_headers\render\d3d11\render_d3d11.h" />
+    <ClInclude Include="ts_headers\render\render.h" />
+    <ClInclude Include="ts_headers\third_party\meow_hash_x64_aesni.h" />
+    <ClInclude Include="ts_headers\third_party\metadesk\md.h" />
+    <ClInclude Include="ts_headers\third_party\metadesk\md_stb_sprintf.h" />
+    <ClInclude Include="ts_headers\third_party\pcg\include\pcg_variants.h" />
+    <ClInclude Include="ts_headers\third_party\stb_image.h" />
+    <ClInclude Include="ts_headers\third_party\stb_truetype.h" />
+    <ClInclude Include="ts_headers\third_party\ts_stb_sprintf.h" />
+    <ClInclude Include="ts_headers\ui\generated\ui.meta.h" />
+    <ClInclude Include="ts_headers\ui\ui.h" />
+    <ClInclude Include="ts_headers\ui\ui_inc.h" />
+    <ClInclude Include="ts_headers\ui\ui_widgets.h" />
+    <ClInclude Include="ts_headers\webgen\webgen.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

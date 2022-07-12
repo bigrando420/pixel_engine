@@ -81,6 +81,7 @@ typedef struct S_State S_State;
 struct S_State
 {
     M_Arena *permanent_arena;
+    APP_Window *window;
     
     B8 is_simulating;
     
@@ -113,6 +114,7 @@ function Vec4U8 *ColourAt(S32 x, S32 y);
 function PixelType GetPixelType(Pixel *pixel);
 function void SetPixelType(Pixel *pixel, PixelType type);
 
+function Rng2F32 CameraGetViewRect();
 function void CameraUpdate(Vec2F32 *cam, Vec2F32 axis_input);
 function void ApplyWorldTransfromOrSomeShit(Rng2F32 *rect);
 
@@ -121,6 +123,8 @@ function void ApplyWorldTransfromOrSomeShit(Rng2F32 *rect);
 function void PixelStep(Chunk *chunk, Pixel *pixel, Vec2S32 local_pos);
 function Pixel *PixelAtRelativeOffset(Chunk *chunk, Pixel *relative_pixel, Vec2S32 rel_pixel_pos, Vec2S32 offset);
 
+function void ChunksInRect(Rng2F32 rect, Vec2S32 *chunk_arr, U32 chunk_arr_max, U32 *count);
+function Vec2S32 ChunkGetPosFromWorldPos(Vec2F32 world_pos);
 function void ChunkUnload(Chunk *chunk);
 function Chunk *ChunkLoadAt(Vec2S32 pos);
 function void ChunkUpdateActive();
