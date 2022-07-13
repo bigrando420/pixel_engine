@@ -32,6 +32,8 @@ S_Open(APP_Window *window)
     
     ChunkSortActive();
     
+    printf("%zu\n", sizeof(S_State));
+    
     return state;
 }
 
@@ -82,6 +84,15 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
     if (OS_KeyRelease(events, window->handle, OS_Key_S, 0))
     {
         s_key_down = 0;
+    }
+    local_persist B8 left_mouse_down = 0;
+    if (OS_KeyPress(events, window->handle, OS_Key_MouseLeft, 0))
+    {
+        left_mouse_down = 1;
+    }
+    if (OS_KeyRelease(events, window->handle, OS_Key_MouseLeft, 0))
+    {
+        left_mouse_down = 0;
     }
     
     //~
@@ -159,7 +170,8 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
         selected_type = 0;
     }
     
-    if (OS_KeyPress(events, window->handle, OS_Key_MouseLeft, 0))
+    // @brush
+    if (left_mouse_down)
     {
 #if BRUSH_SIZE == 1
         Vec2S32 mouse = GetPixelAtMousePos(window);
@@ -170,12 +182,12 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
         for (int y = size / -2; y < size / 2; y++)
             for (int x = size / -2; x < size / 2; x++)
         {
-            Vec2S32 mouse = GetPixelAtMousePos(window);
-            // TODO(randy): absolute pixel at
-            /* 
-                        Pixel *pixel = PixelAt(mouse.x + x, mouse.y + y);
-                        SetPixelType(pixel, selected_type);
-             */
+            Vec2S32 mouse = GetPixelAtMousePos();
+            Pixel *pixel = PixelAtAbsolutePos(V2S32(mouse.x + x, mouse.y + y));
+            if (pixel)
+            {
+                SetPixelType(pixel, selected_type);
+            }
         }
 #endif
     }
@@ -238,38 +250,10 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
     }
 #endif
     
+    // ChunksLoadUnloadInCameraView();
     
     if (state->is_simulating)
         StepPixelSimulation();
-    
-    /* 
-        
-        {
-            Vec2F32 mouse = OS_MouseFromWindow(window->handle);
-            
-            Vec2S64 size = V2S64(SIM_X,
-                                 SIM_Y);
-            
-    #if BRUSH_PREVIEW
-            // TODO(randy): just render the outline instead of full square
-            {
-                S32 size = BRUSH_SIZE;
-                for (int y = size / -2; y < size / 2; y++)
-                    for (int x = size / -2; x < size / 2; x++)
-                {
-                    Vec2S32 mouse = GetPixelAtMousePos(window);
-                    Vec4U8 *col = ColourAt(mouse.x + x, SIM_Y-mouse.y + y);
-                    if (col)
-                    {
-                        col->r = 230;
-                        col->g = 230;
-                        col->b = 230;
-                        col->a = 255;
-                    }
-                }
-            }
-    #endif
-     */
     
     Render();
     update_count++;
@@ -441,11 +425,12 @@ function Vec2S32 GetPixelLocation(Pixel *pixel)
     return V2S32(-1, -1);
 }
 
-function Vec2S32 GetPixelAtMousePos(APP_Window *window)
+function Vec2S32 GetPixelAtMousePos()
 {
-    Vec2S32 loc = V2S32(OS_MouseFromWindow(window->handle).x,
-                        WINDOW_Y - OS_MouseFromWindow(window->handle).y);
-    return V2S32(loc.x / PIXEL_SCALE, loc.y / PIXEL_SCALE);
+    Vec2F32 v = OS_MouseFromWindow(state->window->handle);
+    v = ScreenPositionToWorldPosition(v);
+    
+    return V2S32(v.x, v.y);
 }
 
 function void SetDefaultStage()
@@ -841,7 +826,7 @@ function void ChunkSetDefaultPixels(Chunk *chunk)
     }
 }
 
-function Chunk *ChunkLoadAt(Vec2S32 pos)
+function Chunk *ChunkAttemptLoadFromDisk(Vec2S32 pos)
 {
     char chunk_fname[256];
     sprintf(chunk_fname, "%i,%i.chunk", pos.x, pos.y);
@@ -853,6 +838,11 @@ function Chunk *ChunkLoadAt(Vec2S32 pos)
         return 0;
     
     Chunk *chunk = ChunkInitAtLoc(pos);
+    if (!chunk)
+    {
+        fclose(f);
+        return 0;
+    }
     fread(&chunk->pos, sizeof(chunk->pos), 1, f);
     fread(chunk->pixels, sizeof(chunk->pixels), 1, f);
     
@@ -893,40 +883,14 @@ function void UnloadWorld()
 
 function void LoadWorld()
 {
-    // TODO(randy): get chunks in viewport or some shit
+    Vec2S32 chunks[128];
+    U32 count;
+    ChunksInRect(CameraGetViewRect(), chunks, 128, &count);
     
-    Vec2S32 list_of_chunks[] =
-    {
-        V2S32(0, -1),
-        V2S32(0, 0),
-        V2S32(0, -2),
-        V2S32(0, 1),
-        V2S32(1, 0),
-        V2S32(3, 5),
-    };
-    S32 count = sizeof(list_of_chunks) / sizeof(Vec2S32);
     for (int i = 0; i < count; i++)
     {
-        ChunkLoadAt(list_of_chunks[i]);
+        ChunkAttemptLoadFromDisk(chunks[i]);
     }
-}
-
-// do we want the rect in worldspace - so Y positive is up?
-// I'd say so, it makes the most intuative sense
-// can always revert this?
-// it's already in world space?
-function Rng2F32 CameraGetViewRect()
-{
-    Rng2F32 rect = OS_ClientRectFromWindow(state->window->handle);
-    
-    rect = Shift2F32(rect, V2F32(-state->camera.x, state->camera.y));
-    
-    rect.min.x /= state->camera_zoom;
-    rect.min.y /= state->camera_zoom;
-    rect.max.x /= state->camera_zoom;
-    rect.max.y /= state->camera_zoom;
-    
-    return rect;
 }
 
 function void ChunkRenderDebugAt(Vec2S32 pos)
@@ -974,7 +938,6 @@ function Chunk *ChunkInitAtLoc(Vec2S32 pos)
             next_chunk->pos.y == pos.y)
         {
             // already exists
-            Assert(0);
             return 0;
         }
     }
@@ -993,6 +956,7 @@ function Chunk *ChunkInitAtLoc(Vec2S32 pos)
         }
     }
     
+    // NOTE(randy): no room for chunk
     return 0;
 }
 
@@ -1083,36 +1047,61 @@ function void Render()
         DR_Rect(&bucket, render_rect, V4F32(1.0f, 1.0f, 1.0f, 1.0f));
      */
     
+    /* 
+        {
+            Vec2F32 mouse = OS_MouseFromWindow(window->handle);
+            
+            Vec2S64 size = V2S64(SIM_X,
+                                 SIM_Y);
+            
+    #if BRUSH_PREVIEW
+            // TODO(randy): just render the outline instead of full square
+            {
+                S32 size = BRUSH_SIZE;
+                for (int y = size / -2; y < size / 2; y++)
+                    for (int x = size / -2; x < size / 2; x++)
+                {
+                    Vec2S32 mouse = GetPixelAtMousePos(window);
+                    Vec4U8 *col = ColourAt(mouse.x + x, SIM_Y-mouse.y + y);
+                    if (col)
+                    {
+                        col->r = 230;
+                        col->g = 230;
+                        col->b = 230;
+                        col->a = 255;
+                    }
+                }
+            }
+    #endif
+     */
+    
     ChunkRenderActive(&bucket);
     
     // NOTE(randy): queue up all chunks in view for render
     // separated out bc I might still want to do other specific debug chunk renders in future
-    Vec2S32 chunks[32];
+    Vec2S32 chunks[MAX_ACTIVE_CHUNKS];
     U32 count;
-    ChunksInRect(CameraGetViewRect(), chunks, 32, &count);
+    ChunksInRect(CameraGetViewRect(), chunks, MAX_ACTIVE_CHUNKS, &count);
     for (int i = 0; i < count; i++)
     {
         ChunkRenderDebugAt(chunks[i]);
     }
     
-    
     // NOTE(randy): render debug chunks
+    for (int i = 0; i < state->render_debug_chunks_count; i++)
     {
-        for (int i = 0; i < state->render_debug_chunks_count; i++)
-        {
-            Vec2S32 pos = state->render_debug_chunks[i];
-            
-            Rng2F32 render_rect = R2F32(V2F32(0.0f, 0.0f),
-                                        V2F32(CHUNK_SIZE,
-                                              CHUNK_SIZE));
-            render_rect = Shift2F32(render_rect, V2F32(pos.x * CHUNK_SIZE * 1.005f,
-                                                       pos.y * CHUNK_SIZE * 1.005f));
-            ApplyWorldTransfromOrSomeShit(&render_rect);
-            
-            DR_Rect_B(&bucket, render_rect, V4F32(1.0f, 0.0f, 0.0f, 1.0f), 5.0f);
-        }
-        state->render_debug_chunks_count = 0;
+        Vec2S32 pos = state->render_debug_chunks[i];
+        
+        Rng2F32 render_rect = R2F32(V2F32(0.0f, 0.0f),
+                                    V2F32(CHUNK_SIZE,
+                                          CHUNK_SIZE));
+        render_rect = Shift2F32(render_rect, V2F32(pos.x * CHUNK_SIZE * 1.005f,
+                                                   pos.y * CHUNK_SIZE * 1.005f));
+        ApplyWorldTransfromOrSomeShit(&render_rect);
+        
+        DR_Rect_B(&bucket, render_rect, V4F32(1.0f, 0.0f, 0.0f, 1.0f), 5.0f);
     }
+    state->render_debug_chunks_count = 0;
     
     DR_Submit(state->window->window_equip, bucket.cmds);
 }
@@ -1254,4 +1243,84 @@ function void ApplyWorldTransfromOrSomeShit(Rng2F32 *rect)
     
     // NOTE(randy): apply camera translation
     *rect = Shift2F32(*rect, state->camera);
+}
+
+function Vec2F32 ScreenPositionToWorldPosition(Vec2F32 v)
+{
+    Rng2F32 rect = OS_ClientRectFromWindow(state->window->handle);
+    
+    v.y = rect.max.y - v.y;
+    
+    v = Add2F32(v, V2F32(-state->camera.x, state->camera.y));
+    
+    v.x /= state->camera_zoom;
+    v.y /= state->camera_zoom;
+    
+    return v;
+}
+
+// do we want the rect in worldspace - so Y positive is up?
+// I'd say so, it makes the most intuative sense
+// can always revert this?
+// it's already in world space?
+function Rng2F32 CameraGetViewRect()
+{
+    Rng2F32 rect = OS_ClientRectFromWindow(state->window->handle);
+    
+    rect = Shift2F32(rect, V2F32(-state->camera.x, state->camera.y));
+    
+    rect.min.x /= state->camera_zoom;
+    rect.min.y /= state->camera_zoom;
+    rect.max.x /= state->camera_zoom;
+    rect.max.y /= state->camera_zoom;
+    
+    return rect;
+}
+
+function void ChunksLoadUnloadInCameraView()
+{
+    Vec2S32 chunks_in_view[128];
+    U32 count;
+    ChunksInRect(CameraGetViewRect(), chunks_in_view, 128, &count);
+    
+    // NOTE(randy): Unload inactive chunks
+    for (int i = 0; i < MAX_ACTIVE_CHUNKS; i++)
+    {
+        Chunk *active_chunk = &state->chunks[i];
+        if (active_chunk->valid)
+        {
+            B8 is_chunk_still_in_view = 0;
+            
+            for (int j = 0; j < count; j++)
+            {
+                Vec2S32 view_chunk = chunks_in_view[j];
+                if (view_chunk.x == active_chunk->pos.x &&
+                    view_chunk.y == active_chunk->pos.y)
+                {
+                    is_chunk_still_in_view = 1;
+                }
+            }
+            
+            if (!is_chunk_still_in_view)
+            {
+                ChunkUnload(active_chunk);
+            }
+        }
+    }
+    
+    // NOTE(randy): Load in visible chunks
+    for (int i = 0; i < count; i++)
+    {
+        Vec2S32 view_chunk = chunks_in_view[i];
+        Chunk *chunk = ChunkAttemptLoadFromDisk(view_chunk);
+        if (!chunk)
+        {
+            // no chunk found on disk (or active buffer is full)
+            chunk = ChunkInitAtLoc(view_chunk);
+            if (!chunk)
+            {
+                // is full
+            }
+        }
+    }
 }
