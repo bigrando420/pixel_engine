@@ -32,8 +32,6 @@ S_Open(APP_Window *window)
     
     ChunkSortActive();
     
-    printf("%zu\n", sizeof(S_State));
-    
     return state;
 }
 
@@ -250,7 +248,7 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
     }
 #endif
     
-    // ChunksLoadUnloadInCameraView();
+    ChunksLoadUnloadInCameraView();
     
     if (state->is_simulating)
         StepPixelSimulation();
@@ -868,6 +866,12 @@ function void ChunkUnload(Chunk *chunk)
     fwrite(chunk->pixels, sizeof(chunk->pixels), 1, f);
     fclose(f);
     
+    ChunkZero(chunk);
+}
+
+function void ChunkZero(Chunk *chunk)
+{
+    dr_state->backend.ReleaseTexture2D(dr_state->os_eqp, chunk->texture);
     MemoryZeroStruct(chunk);
 }
 
@@ -951,6 +955,11 @@ function Chunk *ChunkInitAtLoc(Vec2S32 pos)
             chunk->valid = 1;
             chunk->pos = pos;
             ChunkSetDefaultPixels(chunk);
+            
+            // allocate texture for this chunk
+            chunk->texture = dr_state->backend.ReserveTexture2D(dr_state->os_eqp,
+                                                                V2S64(CHUNK_SIZE, CHUNK_SIZE),
+                                                                R_Texture2DFormat_RGBA8);
             
             return chunk;
         }
@@ -1191,13 +1200,11 @@ function void ChunkRender(Chunk *chunk, DR_Bucket *bucket)
         }
     }
     
-    // NOTE(randy): Create a texture and fill it with the pixel data
+    // NOTE(randy): Fill texture with render data
     Vec2S64 texture_size = V2S64(CHUNK_SIZE, CHUNK_SIZE);
-    R_Handle texture = dr_state->backend.ReserveTexture2D(dr_state->os_eqp,
-                                                          texture_size,
-                                                          R_Texture2DFormat_RGBA8);
+    
     dr_state->backend.FillTexture2D(dr_state->os_eqp,
-                                    texture,
+                                    chunk->texture,
                                     R2S64(V2S64(0, 0),
                                           texture_size),
                                     Str8((U8*)chunk_texture_data, 
@@ -1217,7 +1224,7 @@ function void ChunkRender(Chunk *chunk, DR_Bucket *bucket)
               render_rect,
               R2F32(V2F32(0.0f, 0.0f),
                     V2F32(texture_size.x, texture_size.y)),
-              texture);
+              chunk->texture);
 }
 
 // TODO(randy): rename

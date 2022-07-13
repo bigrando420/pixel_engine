@@ -73,7 +73,9 @@ typedef struct Chunk
     B8 valid; // scuffed, this'll become implicit when/if I move to a hash map
     Vec2S32 pos;
     Pixel pixels[CHUNK_SIZE][CHUNK_SIZE];
-    Vec4U8 temp_pixel_texture[CHUNK_SIZE][CHUNK_SIZE]; // It'd be cheaper to recalc every frame
+    //Vec4U8 temp_pixel_texture[CHUNK_SIZE][CHUNK_SIZE]; // It'd be cheaper to recalc every frame
+    
+    R_Handle texture;
 } Chunk;
 
 #define DEBUG_CHUNK_COUNT 256
@@ -131,7 +133,10 @@ function Pixel *PixelAtAbsolutePos(Vec2S32 pos);
 function void ChunksLoadUnloadInCameraView();
 function void ChunksInRect(Rng2F32 rect, Vec2S32 *chunk_arr, U32 chunk_arr_max, U32 *count);
 function Vec2S32 ChunkGetPosFromWorldPos(Vec2F32 world_pos);
-function void ChunkUnload(Chunk *chunk);
+function void ChunkUnload(Chunk *chunk); // rename ChunkUnloadToDisk
+// ^ or maybe it should be ChunkUnloadToFile - and I just pass in the file as well
+// to keep this function more atomic
+function void ChunkZero(Chunk *chunk);
 function Chunk *ChunkAttemptLoadFromDisk(Vec2S32 pos);
 function void ChunkUpdateActive();
 function void ChunkUpdate(Chunk *chunk);
