@@ -30,8 +30,6 @@ S_Open(APP_Window *window)
     ChunkInitAtLoc(V2S32(0, -1));
     ChunkInitAtLoc(V2S32(-1, -2));
     
-    ChunkSortActive();
-    
     return state;
 }
 
@@ -249,6 +247,7 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
 #endif
     
     ChunksLoadUnloadInCameraView();
+    ChunkSortActive();
     
     if (state->is_simulating)
         StepPixelSimulation();
@@ -433,6 +432,23 @@ function Vec2S32 GetPixelAtMousePos()
 
 function void SetDefaultStage()
 {
+    for (int i = 0; i < MAX_ACTIVE_CHUNKS; i++)
+    {
+        Chunk *chunk = &state->chunks[i];
+        if (chunk->valid)
+        {
+            ChunkSetDefaultPixels(chunk);
+        }
+    }
+    
+    
+    // NOTE(randy): this would be a good solution for deleting the entire world?
+    /* 
+        UnloadWorld();
+        DeleteChunksOnDisk();
+     */
+    
+    
     /* 
         MemorySet(state->pixels, 0, sizeof(state->pixels));
         
@@ -544,10 +560,29 @@ function void PixelStep(Chunk *chunk, Pixel *pixel, Vec2S32 local_pos)
     
     B8 has_moved = 0;
     
-    B8 is_falling_check = ((pixel->flags & PIXEL_FLAG_inertia) ? pixel->is_falling : 1);
+    B8 is_falling_check = ((pixel->flags & PIXEL_FLAG_inertia) ? pixel->is_resting : 1);
     
-    //~ Gravity
-    if (pixel->flags & PIXEL_FLAG_gravity)
+    //~ Gravity - simple 1 step
+    if (!pixel->is_resting &&
+        pixel->flags & PIXEL_FLAG_gravity_simple)
+    {
+        Pixel *pxl_below = PixelAtRelativeOffset(chunk, pixel, local_pos, V2S32(0, -1));
+        if (!pxl_below)
+        {
+            PixelClear(pixel);
+            return;
+        }
+        
+        if (CanPixelMoveTo(pixel, pxl_below))
+        {
+            SwapPixels(pixel, pxl_below, &pixel);
+            has_moved = 0;
+        }
+    }
+    
+    //~ Gravity - velocity based
+    if (!pixel->is_resting &&
+        pixel->flags & PIXEL_FLAG_gravity_velocity)
     {
         const F32 gravity = 0.4f;
         pixel->vel.y -= gravity;
@@ -557,7 +592,6 @@ function void PixelStep(Chunk *chunk, Pixel *pixel, Vec2S32 local_pos)
         
         Vec2S32 from_loc = local_pos;
         Vec2S32 to_loc = V2S32(local_pos.x, local_pos.y - 1 + pixel->vel.y);
-        //Vec2S32 to_loc = V2S32(local_pos.x, local_pos.y - 5);
         
         Vec2S32 inter_pixels[16];
         U32 count = 0;
@@ -613,62 +647,67 @@ function void PixelStep(Chunk *chunk, Pixel *pixel, Vec2S32 local_pos)
         }
     }
     
+    //~ Move diagonally
+    if (!has_moved &&
+        !pixel->is_resting &&
+        (pixel->flags & PIXEL_FLAG_move_diagonal))
+    {
+        B8 has_x_vel = !F32Compare(pixel->vel.x, 0.0f, 0.01f);
+        B8 check_left_first;
+        if (has_x_vel)
+        {
+            check_left_first = Sign(pixel->vel.x) == -1;
+        }
+        else
+        {
+            check_left_first = rand() % 2 == 0;
+        }
+        
+        Pixel *left = PixelAtRelativeOffset(chunk, pixel, local_pos, V2S32(-1, 0));
+        Pixel *right = PixelAtRelativeOffset(chunk, pixel, local_pos, V2S32(1, 0));
+        Pixel *down_left = PixelAtRelativeOffset(chunk, pixel, local_pos, V2S32(-1, -1));
+        Pixel *down_right = PixelAtRelativeOffset(chunk, pixel, local_pos, V2S32(1, -1));
+        if (!left || !right || !down_right || !down_left)
+        {
+            PixelClear(pixel);
+            return;
+        }
+        
+        if (check_left_first &&
+            CanPixelMoveTo(pixel, left) &&
+            CanPixelMoveTo(pixel, down_left))
+        {
+            SwapPixels(pixel, down_left, &pixel);
+            has_moved = 1;
+        }
+        else if (CanPixelMoveTo(pixel, right) &&
+                 CanPixelMoveTo(pixel, down_right))
+        {
+            SwapPixels(pixel, down_right, &pixel);
+            has_moved = 1;
+        }
+        else if (!check_left_first &&
+                 CanPixelMoveTo(pixel, left) &&
+                 CanPixelMoveTo(pixel, down_left))
+        {
+            SwapPixels(pixel, down_left, &pixel);
+            has_moved = 1;
+        }
+    }
+    
+    if ((pixel->flags & PIXEL_FLAG_seed_random_x_velocity) &&
+        F32Compare(pixel->vel.x, 0.0f, 0.01f) && GetPixelType(pixel) == PIXEL_TYPE_water)
+    {
+        pixel->vel.x = 5.0f + (rand() % 2 == 0 ? -1 : 1) * (rand() % 2);
+        pixel->vel.x *= (rand() % 2 == 0 ? 1 : -1);
+    }
+    
+    
+    
+    //~ Move sideways
+    // TODO(randy): Need a better way of figuring out if the water pixel is level
+    // Right now it's a bit icky, but good enough
     /*
-            //~ Move diagonally
-            if (!has_moved &&
-                is_falling_check &&
-                (pixel->flags & PIXEL_FLAG_move_diagonal))
-            {
-                B8 has_x_vel = !F32Compare(pixel->vel.x, 0.0f, 0.01f);
-                B8 check_left_first;
-                if (has_x_vel)
-                {
-                    check_left_first = Sign(pixel->vel.x) == -1;
-                }
-                else
-                {
-                    check_left_first = rand() % 2 == 0;
-                }
-                
-                Pixel *left = PixelAt(x-1, y);
-                Pixel *right = PixelAt(x+1, y);
-                Pixel *down_left = PixelAt(x-1, y-1);
-                Pixel *down_right = PixelAt(x+1, y-1);
-                
-                if (check_left_first &&
-                    CanPixelMoveTo(pixel, left) &&
-                    CanPixelMoveTo(pixel, down_left))
-                {
-                    SwapPixels(pixel, down_left, &pixel);
-                    has_moved = 1;
-                }
-                else if (CanPixelMoveTo(pixel, right) &&
-                         CanPixelMoveTo(pixel, down_right))
-                {
-                    SwapPixels(pixel, down_right, &pixel);
-                    has_moved = 1;
-                }
-                else if (!check_left_first &&
-                         CanPixelMoveTo(pixel, left) &&
-                         CanPixelMoveTo(pixel, down_left))
-                {
-                    SwapPixels(pixel, down_left, &pixel);
-                    has_moved = 1;
-                }
-            }
-            
-            if ((pixel->flags & PIXEL_FLAG_seed_random_x_velocity) &&
-                F32Compare(pixel->vel.x, 0.0f, 0.01f) && GetPixelType(pixel) == PIXEL_TYPE_water)
-            {
-                pixel->vel.x = 5.0f + (rand() % 2 == 0 ? -1 : 1) * (rand() % 2);
-                pixel->vel.x *= (rand() % 2 == 0 ? 1 : -1);
-            }
-            
-            
-            
-            //~ Move sideways
-            // TODO(randy): Need a better way of figuring out if the water pixel is level
-            // Right now it's a bit icky, but good enough
             if (has_moved)
                 pixel->vertical_move_timer = 20;
             else if (pixel->vertical_move_timer != 0)
@@ -806,6 +845,11 @@ function PixelType GetPixelType(Pixel *pixel)
 function void SetPixelType(Pixel *pixel, PixelType type)
 {
     pixel->flags = type;
+    
+    if (!state->is_simulating)
+        pixel->is_resting = 1;
+    else
+        pixel->is_resting = 0;
 }
 
 function void CameraUpdate(Vec2F32 *cam, Vec2F32 axis_input)
@@ -885,6 +929,11 @@ function void UnloadWorld()
     }
 }
 
+function void DeleteChunksOnDisk()
+{
+    // TODO(randy): idk how to delete an entire folder
+}
+
 function void LoadWorld()
 {
     Vec2S32 chunks[128];
@@ -914,7 +963,7 @@ function Vec2S32 ChunkGetPosFromWorldPos(Vec2F32 world_pos)
 function void ChunksInRect(Rng2F32 rect, Vec2S32 *chunk_arr, U32 chunk_arr_max, U32 *count)
 {
     *count = 0;
-    rect = Pad2F32(rect, -100);
+    //rect = Pad2F32(rect, -100);
     
     Vec2S32 bottom_left = ChunkGetPosFromWorldPos(rect.min);
     Vec2S32 top_right = ChunkGetPosFromWorldPos(rect.max);
@@ -952,6 +1001,8 @@ function Chunk *ChunkInitAtLoc(Vec2S32 pos)
         Chunk *chunk = &state->chunks[i];
         if (!chunk->valid)
         {
+            MemoryZeroStruct(chunk);
+            
             chunk->valid = 1;
             chunk->pos = pos;
             ChunkSetDefaultPixels(chunk);
@@ -1088,6 +1139,7 @@ function void Render()
     
     // NOTE(randy): queue up all chunks in view for render
     // separated out bc I might still want to do other specific debug chunk renders in future
+#if CHUNK_RENDER_DEBUG
     Vec2S32 chunks[MAX_ACTIVE_CHUNKS];
     U32 count;
     ChunksInRect(CameraGetViewRect(), chunks, MAX_ACTIVE_CHUNKS, &count);
@@ -1111,6 +1163,7 @@ function void Render()
         DR_Rect_B(&bucket, render_rect, V4F32(1.0f, 0.0f, 0.0f, 1.0f), 5.0f);
     }
     state->render_debug_chunks_count = 0;
+#endif
     
     DR_Submit(state->window->window_equip, bucket.cmds);
 }
@@ -1215,8 +1268,8 @@ function void ChunkRender(Chunk *chunk, DR_Bucket *bucket)
                                       CHUNK_SIZE));
     
     // shift into correct location
-    render_rect = Shift2F32(render_rect, V2F32(chunk->pos.x * CHUNK_SIZE * 1.005f,
-                                               chunk->pos.y * CHUNK_SIZE * 1.005f));
+    render_rect = Shift2F32(render_rect, V2F32(chunk->pos.x * CHUNK_SIZE * (CHUNK_DEBUG_SPACE ? 1.005f : 1.0f),
+                                               chunk->pos.y * CHUNK_SIZE * (CHUNK_DEBUG_SPACE ? 1.005f : 1.0f)));
     ApplyWorldTransfromOrSomeShit(&render_rect);
     
     DR_Sprite(bucket,

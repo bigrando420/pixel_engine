@@ -13,7 +13,8 @@
 typedef U32 PixelFlags;
 enum
 {
-    PIXEL_FLAG_gravity =             (1<<0),
+    PIXEL_FLAG_gravity_simple =      (1<<0),
+    PIXEL_FLAG_gravity_velocity =    (1<<5),
     PIXEL_FLAG_move_diagonal =       (1<<1),
     PIXEL_FLAG_transfer_y_vel_to_x_vel_when_splat_lol =   (1<<2),
     PIXEL_FLAG_has_friction =        (1<<3),
@@ -36,7 +37,7 @@ typedef enum PixelType
     PIXEL_TYPE_air = PIXEL_FLAG_air_lol,
     // 399
     PIXEL_TYPE_sand = (
-                       PIXEL_FLAG_gravity
+                       PIXEL_FLAG_gravity_velocity
                        | PIXEL_FLAG_move_diagonal
                        | PIXEL_FLAG_transfer_y_vel_to_x_vel_when_splat_lol
                        | PIXEL_FLAG_has_friction
@@ -44,7 +45,7 @@ typedef enum PixelType
                        | PIXEL_FLAG_move_sideways_from_x_vel
                        ),
     // 39
-    PIXEL_TYPE_water = (PIXEL_FLAG_gravity
+    PIXEL_TYPE_water = (PIXEL_FLAG_gravity_simple
                         | PIXEL_FLAG_move_diagonal
                         | PIXEL_FLAG_transfer_y_vel_to_x_vel_when_splat_lol
                         | PIXEL_FLAG_seed_random_x_velocity
@@ -61,7 +62,7 @@ typedef struct Pixel
     PixelFlags flags;
     Vec2F32 vel;
     
-    B8 is_falling;
+    B8 is_resting; // just inverse of is_falling
     
     U8 vertical_move_timer;
 } Pixel;
@@ -145,9 +146,11 @@ function void ChunkRender(Chunk *chunk, DR_Bucket *bucket);
 // returns 0 if already exists
 function Chunk *ChunkInitAtLoc(Vec2S32 pos);
 function void ChunkSortActive();
+function void ChunkSetDefaultPixels(Chunk *chunk);
 
 function void UnloadWorld();
 function void LoadWorld();
+function void DeleteChunksOnDisk();
 
 function void Render();
 
@@ -162,6 +165,9 @@ function void Render();
 
 #define BRUSH_PREVIEW 0
 
-#define DEFAULT_CAM_ZOOM 2
+#define DEFAULT_CAM_ZOOM 10
+
+#define CHUNK_RENDER_DEBUG 0
+#define CHUNK_DEBUG_SPACE 1
 
 #endif //SCRATCH_MAIN_H
