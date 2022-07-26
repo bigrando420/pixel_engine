@@ -21,7 +21,7 @@ enum
     PIXEL_FLAG_immovable =           (1<<4),
     //   =      (1<<5),
     PIXEL_FLAG_air_lol  =      (1<<6),
-    PIXEL_FLAG_inertia  =      (1<<7),
+    PIXEL_FLAG_dislodge_neighbours  =      (1<<7),
     PIXEL_FLAG_move_sideways_from_x_vel  =      (1<<8),
     PIXEL_FLAG_seed_random_x_velocity =      (1<<9),
 };
@@ -41,7 +41,7 @@ typedef enum PixelType
                        | PIXEL_FLAG_move_diagonal
                        | PIXEL_FLAG_transfer_y_vel_to_x_vel_when_splat_lol
                        | PIXEL_FLAG_has_friction
-                       | PIXEL_FLAG_inertia
+                       | PIXEL_FLAG_dislodge_neighbours
                        | PIXEL_FLAG_move_sideways_from_x_vel
                        ),
     // 39

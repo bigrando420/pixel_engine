@@ -560,7 +560,7 @@ function void PixelStep(Chunk *chunk, Pixel *pixel, Vec2S32 local_pos)
     
     B8 has_moved = 0;
     
-    B8 is_falling_check = ((pixel->flags & PIXEL_FLAG_inertia) ? pixel->is_resting : 1);
+    //B8 is_falling_check = ((pixel->flags & PIXEL_FLAG_inertia) ? pixel->is_resting : 1);
     
     //~ Gravity - simple 1 step
     if (!pixel->is_resting &&
@@ -576,7 +576,7 @@ function void PixelStep(Chunk *chunk, Pixel *pixel, Vec2S32 local_pos)
         if (CanPixelMoveTo(pixel, pxl_below))
         {
             SwapPixels(pixel, pxl_below, &pixel);
-            has_moved = 0;
+            has_moved = 1;
         }
     }
     
@@ -760,33 +760,39 @@ function void PixelStep(Chunk *chunk, Pixel *pixel, Vec2S32 local_pos)
                 if (pixel->flags & PIXEL_FLAG_has_friction)
                     ApplyFrictionToPixel(pixel);
             }
-            
-            //~ Inertia
-            pixel->is_falling = has_moved;//!F32Compare(pixel->vel.x, 0.0f, 0.1f);
-            
-            if (pixel->is_falling &&
-                (pixel->flags & PIXEL_FLAG_inertia))
-            {
-                Pixel *left = PixelAt(x-1, y);
-                Pixel *right = PixelAt(x+1, y);
-                Pixel *down_left = PixelAt(x-1, y-1);
-                Pixel *down_right = PixelAt(x+1, y-1);
-                Pixel *top_left = PixelAt(x-1, y+1);
-                Pixel *top_right = PixelAt(x+1, y+1);
-                
-                if (rand() % DISLODGE_CHANCE == 0)
-                {
-                    left->is_falling = 1;
-                    right->is_falling = 1;
-                    down_left->is_falling = 1;
-                    down_right->is_falling = 1;
-                    top_left->is_falling = 1;
-                    top_right->is_falling = 1;
-                }
-            }
-         */
+*/
     
+    //~ Inertia
+    //pixel->is_resting = !has_moved;
+    // NOTE(randy): why does this collapse the entire structure when it's like this
     
+    // TODO(randy): I really need better debug visuals
+    // tint the pixel based off of the state (is_resting for example)
+    
+    if (!pixel->is_resting &&
+        (pixel->flags & PIXEL_FLAG_dislodge_neighbours))
+    {
+        Pixel *left = PixelAtRelativeOffset(chunk, pixel, local_pos, V2S32(-1, 0));
+        Pixel *right = PixelAtRelativeOffset(chunk, pixel, local_pos, V2S32(1, 0));
+        Pixel *down_left = PixelAtRelativeOffset(chunk, pixel, local_pos, V2S32(-1, -1));
+        Pixel *down_right = PixelAtRelativeOffset(chunk, pixel, local_pos, V2S32(1, -1));
+        Pixel *top_left = PixelAtRelativeOffset(chunk, pixel, local_pos, V2S32(-1, 1));
+        Pixel *top_right = PixelAtRelativeOffset(chunk, pixel, local_pos, V2S32(1, 1));
+        Pixel *top = PixelAtRelativeOffset(chunk, pixel, local_pos, V2S32(0, 1));
+        Pixel *down = PixelAtRelativeOffset(chunk, pixel, local_pos, V2S32(0, -1));
+        
+        if (rand() % DISLODGE_CHANCE == 0)
+        {
+            left->is_resting = 0;
+            right->is_resting = 0;
+            down_left->is_resting = 0;
+            down_right->is_resting = 0;
+            top_left->is_resting = 0;
+            top_right->is_resting = 0;
+            top->is_resting = 0;
+            down->is_resting = 0;
+        }
+    }
 }
 
 function B8 CanPixelMoveTo(Pixel *src, Pixel *dest)
