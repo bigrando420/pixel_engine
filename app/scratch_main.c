@@ -510,20 +510,37 @@ function Pixel *PixelAtAbsolutePos(Vec2S32 pos)
             chunk->pos.x == chunk_loc.x &&
             chunk->pos.y == chunk_loc.y)
         {
-            Vec2S32 a = V2S32(abs(pos.x) % CHUNK_SIZE,
-                              abs(pos.y) % CHUNK_SIZE);
-            
-            // NOTE(randy): invert if it's negative, to get the correct index
+            S32 x_index = pos.x;
             if (pos.x < 0)
             {
-                a.x = CHUNK_SIZE - a.x;
+                x_index += 1;
+                x_index = abs(x_index);
+                x_index = x_index % CHUNK_SIZE;
+                x_index = CHUNK_SIZE - x_index - 1;
+                // now we are a happy chappy :)
             }
-            if (pos.y < 0)
+            else
             {
-                a.y = CHUNK_SIZE - a.y;
+                x_index = x_index % CHUNK_SIZE;
             }
             
-            return &chunk->pixels[a.y][a.x];
+            S32 y_index = pos.y;
+            if (pos.y < 0)
+            {
+                y_index += 1;
+                y_index = abs(y_index);
+                y_index = y_index % CHUNK_SIZE;
+                y_index = CHUNK_SIZE - y_index - 1;
+            }
+            else
+            {
+                y_index = y_index % CHUNK_SIZE;
+            }
+            
+            Assert(x_index >= 0 && x_index < CHUNK_SIZE &&
+                   y_index >= 0 && y_index < CHUNK_SIZE);
+            
+            return &chunk->pixels[y_index][x_index];
         }
     }
     
