@@ -22,7 +22,16 @@ S_Open(APP_Window *window)
     state->camera_zoom = DEFAULT_CAM_ZOOM;
     state->is_simulating = START_SIM_STRAIGHT_AWAY;
     
-    SetDefaultStage();
+    // NOTE(randy): create all textures for all chunks
+    for (int i = 0; i < MAX_ACTIVE_CHUNKS; i ++)
+    {
+        Chunk *chunk = &state->chunks[i];
+        chunk->texture = dr_state->backend.ReserveTexture2D(dr_state->os_eqp,
+                                                            V2S64(CHUNK_SIZE, CHUNK_SIZE),
+                                                            R_Texture2DFormat_RGBA8);
+    }
+    
+    // SetDefaultStage();
     
     ChunkInitAtLoc(V2S32(0, 0));
     ChunkInitAtLoc(V2S32(1, 0));
@@ -36,6 +45,13 @@ S_Open(APP_Window *window)
 function void
 S_Close(APP_Window *window, S_State *state)
 {
+    // NOTE(randy): Do I need to free these?
+    for (int i = 0; i < MAX_ACTIVE_CHUNKS; i ++)
+    {
+        Chunk *chunk = &state->chunks[i];
+        dr_state->backend.ReleaseTexture2D(dr_state->os_eqp, chunk->texture);
+    }
+    
     M_ArenaRelease(state->permanent_arena);
 }
 
@@ -551,6 +567,7 @@ function void PixelClear(Pixel *pxl)
     *pxl = pxl_clear;
 }
 
+// @pixel
 function void PixelStep(Chunk *chunk, Pixel *pixel, Vec2S32 local_pos)
 {
     if (pixel->has_been_updated)
@@ -781,6 +798,12 @@ function void PixelStep(Chunk *chunk, Pixel *pixel, Vec2S32 local_pos)
         Pixel *top = PixelAtRelativeOffset(chunk, pixel, local_pos, V2S32(0, 1));
         Pixel *down = PixelAtRelativeOffset(chunk, pixel, local_pos, V2S32(0, -1));
         
+        if (!left || !right || !down_left || !down_right || !top_left || !top_right || !top || !down)
+        {
+            PixelClear(pixel);
+            return;
+        }
+        
         if (rand() % DISLODGE_CHANCE == 0)
         {
             left->is_resting = 0;
@@ -856,6 +879,9 @@ function void SetPixelType(Pixel *pixel, PixelType type)
         pixel->is_resting = 1;
     else
         pixel->is_resting = 0;
+    
+    if (type == PIXEL_TYPE_air)
+        pixel->is_resting = 0;
 }
 
 function void CameraUpdate(Vec2F32 *cam, Vec2F32 axis_input)
@@ -921,8 +947,7 @@ function void ChunkUnload(Chunk *chunk)
 
 function void ChunkZero(Chunk *chunk)
 {
-    dr_state->backend.ReleaseTexture2D(dr_state->os_eqp, chunk->texture);
-    MemoryZeroStruct(chunk);
+    chunk->valid = 0;
 }
 
 function void UnloadWorld()
@@ -1007,16 +1032,9 @@ function Chunk *ChunkInitAtLoc(Vec2S32 pos)
         Chunk *chunk = &state->chunks[i];
         if (!chunk->valid)
         {
-            MemoryZeroStruct(chunk);
-            
             chunk->valid = 1;
             chunk->pos = pos;
             ChunkSetDefaultPixels(chunk);
-            
-            // allocate texture for this chunk
-            chunk->texture = dr_state->backend.ReserveTexture2D(dr_state->os_eqp,
-                                                                V2S64(CHUNK_SIZE, CHUNK_SIZE),
-                                                                R_Texture2DFormat_RGBA8);
             
             return chunk;
         }
@@ -1029,21 +1047,23 @@ function Chunk *ChunkInitAtLoc(Vec2S32 pos)
 function void ChunkSortActive()
 {
     // NOTE(randy): Sort chunks so it's from the bottom up
-    for (int i = 0; i < MAX_ACTIVE_CHUNKS - 1; i++)
-    {
-        for (int j = 0; j < MAX_ACTIVE_CHUNKS - 1 - i; j++)
+    /* 
+        for (int i = 0; i < MAX_ACTIVE_CHUNKS - 1; i++)
         {
-            Chunk *a = &state->chunks[j];
-            Chunk *b = &state->chunks[j + 1];
-            
-            if (a->pos.y > b->pos.y)
+            for (int j = 0; j < MAX_ACTIVE_CHUNKS - 1 - i; j++)
             {
-                Chunk temp = *a;
-                *a = *b;
-                *b = temp;
+                Chunk *a = &state->chunks[j];
+                Chunk *b = &state->chunks[j + 1];
+                
+                if (a->pos.y > b->pos.y)
+                {
+                    Chunk temp = *a;
+                    *a = *b;
+                    *b = temp;
+                }
             }
         }
-    }
+     */
 }
 
 function void ChunkUpdateActive()
@@ -1196,24 +1216,6 @@ function void ChunkRender(Chunk *chunk, DR_Bucket *bucket)
         Vec4U8 *col = &chunk_texture_data[y][x];
         Pixel *px = &chunk->pixels[CHUNK_SIZE-y-1][x];
         
-        /* 
-                col->r = (F32)x / (F32)CHUNK_SIZE * 255;
-                col->g = (F32)y / (F32)CHUNK_SIZE * 255;
-                col->b = 0;
-                col->a = 255;
-         */
-        
-        /* 
-                if (px->id == state->selected_pixel)
-                {
-                    col->r = 255;
-                    col->g = 100;
-                    col->b = 100;
-                    col->a = 255;
-                    continue;
-                }
-         */
-        
         switch (GetPixelType(px))
         {
             case PIXEL_TYPE_platform:
@@ -1257,6 +1259,25 @@ function void ChunkRender(Chunk *chunk, DR_Bucket *bucket)
                 col->a = 255;
             } break;
         }
+        
+        // NOTE(randy): Tinting / debug stuff
+        if (px->is_resting)
+        {
+            col->r = 150;
+            col->g = 255;
+            col->b = 150;
+        }
+        
+        /* 
+                if (px->id == state->selected_pixel)
+                {
+                    col->r = 255;
+                    col->g = 100;
+                    col->b = 100;
+                    col->a = 255;
+                    continue;
+                }
+         */
     }
     
     // NOTE(randy): Fill texture with render data
@@ -1268,6 +1289,11 @@ function void ChunkRender(Chunk *chunk, DR_Bucket *bucket)
                                           texture_size),
                                     Str8((U8*)chunk_texture_data, 
                                          sizeof(chunk_texture_data)));
+    
+    // TODO(randy): weird bug where the texture being filled into isn't the right size?
+    // It's only like 1x64, which is weird af
+    // idk lol
+    // NOTE(randy): maybe get the textures immediately afterwards and view their data to make sure it's all good?
     
     Rng2F32 render_rect = R2F32(V2F32(0.0f, 0.0f),
                                 V2F32(CHUNK_SIZE,
@@ -1346,7 +1372,7 @@ function Rng2F32 CameraGetViewRect()
 function void ChunksLoadUnloadInCameraView()
 {
     Vec2S32 chunks_in_view[128];
-    U32 count;
+    U32 count = 0;
     ChunksInRect(CameraGetViewRect(), chunks_in_view, 128, &count);
     
     // NOTE(randy): Unload inactive chunks

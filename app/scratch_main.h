@@ -161,7 +161,7 @@ function void Render();
 #define START_SIM_STRAIGHT_AWAY 0
 #define DRIP 0
 #define DRIP_SPEED 1
-#define DISLODGE_CHANCE 10
+#define DISLODGE_CHANCE 1
 
 #define BRUSH_PREVIEW 0
 
