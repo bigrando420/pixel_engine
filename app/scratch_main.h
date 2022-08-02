@@ -111,7 +111,9 @@ function void UpdatePixelRenderData();
 function void DrawLineAtoB(Vec2S32 a, Vec2S32 b, Vec2S32* dest_arr, U32* count, U32 max_count);
 function Vec2S32 GetPixelLocation(Pixel *pixel);
 function Vec2S32 GetPixelAtMousePos();
-function void SetDefaultStage();
+function void ChunksClearActive();
+function void SetTestStage();
+
 function void ShuffleArray(S32 *array, size_t n);
 function B8 CanPixelMoveTo(Pixel *src, Pixel *dest);
 function void ApplyFrictionToPixel(Pixel *pixel);

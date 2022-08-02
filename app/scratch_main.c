@@ -23,12 +23,23 @@ S_Open(APP_Window *window)
     state->is_simulating = START_SIM_STRAIGHT_AWAY;
     
     // NOTE(randy): create all textures for all chunks
+    Vec4U8 chunk_texture_data[CHUNK_SIZE][CHUNK_SIZE];
+    MemorySet(chunk_texture_data, 0, sizeof(chunk_texture_data));
+    
     for (int i = 0; i < MAX_ACTIVE_CHUNKS; i ++)
     {
         Chunk *chunk = &state->chunks[i];
         chunk->texture = dr_state->backend.ReserveTexture2D(dr_state->os_eqp,
                                                             V2S64(CHUNK_SIZE, CHUNK_SIZE),
                                                             R_Texture2DFormat_RGBA8);
+        
+        dr_state->backend.FillTexture2D(dr_state->os_eqp,
+                                        chunk->texture,
+                                        R2S64(V2S64(0, 0),
+                                              V2S64(CHUNK_SIZE, CHUNK_SIZE)),
+                                        Str8((U8*)chunk_texture_data, 
+                                             sizeof(chunk_texture_data)));
+        
     }
     
     // SetDefaultStage();
@@ -236,12 +247,12 @@ S_Update(APP_Window *window, OS_EventList *events, S_State *state)
     
     if (OS_KeyPress(events, window->handle, OS_Key_R, 0))
     {
-        // FillPixelDataRandomly();
+        SetTestStage();
     }
     
     if (OS_KeyPress(events, window->handle, OS_Key_C, 0))
     {
-        SetDefaultStage();
+        ChunksClearActive();
     }
     
     local_persist B8 drip_override = DRIP;
@@ -446,7 +457,21 @@ function Vec2S32 GetPixelAtMousePos()
     return V2S32(v.x, v.y);
 }
 
-function void SetDefaultStage()
+function void SetTestStage()
+{
+    Rng2F32 view = CameraGetViewRect();
+    view = Pad2F32(view, -200.0f / state->camera_zoom);
+    
+    for (int y = view.min.y; y < view.max.y; y++)
+        for (int x = view.min.x; x < view.max.x; x++)
+    {
+        Pixel *px = PixelAtAbsolutePos(V2S32(x, y));
+        if (px)
+            SetPixelType(px, PIXEL_TYPE_platform);
+    }
+}
+
+function void ChunksClearActive()
 {
     for (int i = 0; i < MAX_ACTIVE_CHUNKS; i++)
     {
@@ -468,22 +493,7 @@ function void SetDefaultStage()
     /* 
         MemorySet(state->pixels, 0, sizeof(state->pixels));
         
-        for (int y = 0; y < SIM_Y; y++)
-            for (int x = 0; x < SIM_X; x++)
-        {
-            Pixel* px = PixelAt(x, y);
-            px->id = x + y * SIM_X + 1;
-            
-            if (x >= SIM_X / 10 && x <= SIM_X - SIM_X / 10 &&
-                y >= 20 && y <= 30)
-            {
-                SetPixelType(px, PIXEL_TYPE_platform);
-            }
-            else
-            {
-                SetPixelType(px, PIXEL_TYPE_air);
-            }
-        }
+        
      */
 }
 
@@ -1064,23 +1074,21 @@ function Chunk *ChunkInitAtLoc(Vec2S32 pos)
 function void ChunkSortActive()
 {
     // NOTE(randy): Sort chunks so it's from the bottom up
-    /* 
-        for (int i = 0; i < MAX_ACTIVE_CHUNKS - 1; i++)
+    for (int i = 0; i < MAX_ACTIVE_CHUNKS - 1; i++)
+    {
+        for (int j = 0; j < MAX_ACTIVE_CHUNKS - 1 - i; j++)
         {
-            for (int j = 0; j < MAX_ACTIVE_CHUNKS - 1 - i; j++)
+            Chunk *a = &state->chunks[j];
+            Chunk *b = &state->chunks[j + 1];
+            
+            if (a->pos.y > b->pos.y)
             {
-                Chunk *a = &state->chunks[j];
-                Chunk *b = &state->chunks[j + 1];
-                
-                if (a->pos.y > b->pos.y)
-                {
-                    Chunk temp = *a;
-                    *a = *b;
-                    *b = temp;
-                }
+                Chunk temp = *a;
+                *a = *b;
+                *b = temp;
             }
         }
-     */
+    }
 }
 
 function void ChunkUpdateActive()
@@ -1232,6 +1240,9 @@ function void ChunkRender(Chunk *chunk, DR_Bucket *bucket)
     {
         Vec4U8 *col = &chunk_texture_data[y][x];
         Pixel *px = &chunk->pixels[CHUNK_SIZE-y-1][x];
+        
+        // TODO(randy): switch these out to be 1.0f colours with HSL
+        // at the end, I convert into the 8 bit 0->255
         
         switch (GetPixelType(px))
         {
