@@ -1231,6 +1231,16 @@ function void ChunkRenderActive(DR_Bucket *bucket)
     }
 }
 
+function Vec3F32 RGB8ToRGBF32(Vec3U8 rgb)
+{
+    return V3F32((F32)rgb.r / 255.0f, (F32)rgb.g / 255.0f, (F32)rgb.b / 255.0f);
+}
+
+function Vec3U8 RGBF32ToRGB8(Vec3F32 rgb)
+{
+    return V3U8(rgb.r * 255, rgb.g * 255, rgb.b * 255);
+}
+
 function void ChunkRender(Chunk *chunk, DR_Bucket *bucket)
 {
     Vec4U8 chunk_texture_data[CHUNK_SIZE][CHUNK_SIZE];
@@ -1238,63 +1248,53 @@ function void ChunkRender(Chunk *chunk, DR_Bucket *bucket)
     for (int y = 0; y < CHUNK_SIZE; y++)
         for (int x = 0; x < CHUNK_SIZE; x++)
     {
-        Vec4U8 *col = &chunk_texture_data[y][x];
+        Vec4U8 *pixel_colour = &chunk_texture_data[y][x];
         Pixel *px = &chunk->pixels[CHUNK_SIZE-y-1][x];
         
-        // TODO(randy): switch these out to be 1.0f colours with HSL
-        // at the end, I convert into the 8 bit 0->255
-        
+        Vec3F32 colour;
         switch (GetPixelType(px))
         {
             case PIXEL_TYPE_platform:
             {
-                col->r = 145;
-                col->g = 139;
-                col->b = 134;
-                col->a = 255;
+                colour = RGB8ToRGBF32(V3U8(145, 139, 134));
             } break;
             
             case PIXEL_TYPE_air:
             {
-                col->r = 180;
-                col->g = 203;
-                col->b = 240;
-                col->a = 255;
+                colour = RGB8ToRGBF32(V3U8(180, 203, 240));
             } break;
             
             case PIXEL_TYPE_sand:
             {
-                col->r = 242;
-                col->g = 216;
-                col->b = 145;
-                col->a = 255;
+                colour = RGB8ToRGBF32(V3U8(242, 216, 145));
             } break;
             
             case PIXEL_TYPE_water:
             {
-                col->r = 74;
-                col->g = 147;
-                col->b = 244;
-                col->a = 255;
+                colour = RGB8ToRGBF32(V3U8(74, 147, 244));
             } break;
             
             case PIXEL_TYPE_undefined:
             default:
             {
-                col->r = 255;
-                col->g = 0;
-                col->b = 0;
-                col->a = 255;
+                colour = RGB8ToRGBF32(V3U8(255, 0, 0));
             } break;
         }
         
         // NOTE(randy): Tinting / debug stuff
         if (px->is_resting)
         {
-            col->r = 150;
-            col->g = 255;
-            col->b = 150;
+            colour = HSVFromRGB(colour);
+            colour.y *= 0.5f;
+            colour = RGBFromHSV(colour);
         }
+        
+        // NOTE(randy): Fill 8 bit pixel colour
+        Vec3U8 col_8 = RGBF32ToRGB8(colour);
+        pixel_colour->r = col_8.r;
+        pixel_colour->g = col_8.g;
+        pixel_colour->b = col_8.b;
+        pixel_colour->a= 255;
         
         /* 
                 if (px->id == state->selected_pixel)

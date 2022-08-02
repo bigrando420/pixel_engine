@@ -56,4 +56,53 @@ union Vec4U8
     U8 v[4];
 };
 
+typedef union Vec3U8 Vec3U8;
+union Vec3U8
+{
+    struct
+    {
+        U8 x;
+        U8 y;
+        U8 z;
+    };
+    
+    struct
+    {
+        U8 r;
+        U8 g;
+        U8 b;
+    };
+    
+    struct
+    {
+        U8 red;
+        U8 green;
+        U8 blue;
+    };
+    
+    U8 elements[3];
+    U8 v[3];
+};
+
+static Vec3U8 V3U8(U8 x, U8 y, U8 z)
+{
+    Vec3U8 vec;
+    vec.x = x;
+    vec.y = y;
+    vec.z = z;
+    
+    return vec;
+}
+
+static Vec4U8 V4U8(U8 x, U8 y, U8 z, U8 w)
+{
+    Vec4U8 vec;
+    vec.x = x;
+    vec.y = y;
+    vec.z = z;
+    vec.w = w;
+    
+    return vec;
+}
+
 #endif //TS_ADDITIONS_H

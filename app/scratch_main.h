@@ -156,6 +156,9 @@ function void DeleteChunksOnDisk();
 
 function void Render();
 
+function Vec3F32 RGB8ToRGBF32(Vec3U8 rgb);
+function Vec3U8 RGBF32ToRGB8(Vec3F32 rgb);
+
 
 //~ NOTE(randy): Prototype controls
 #define FRICTION 0.1f
