@@ -461,6 +461,7 @@ function void SetTestStage()
 {
     Rng2F32 view = CameraGetViewRect();
     view = Pad2F32(view, -200.0f / state->camera_zoom);
+    view = Shift2F32(view, V2F32(0.0f, -200.0f / state->camera_zoom));
     
     for (int y = view.min.y; y < view.max.y; y++)
         for (int x = view.min.x; x < view.max.x; x++)
@@ -751,60 +752,61 @@ function void PixelStep(Chunk *chunk, Pixel *pixel, Vec2S32 local_pos)
     //~ Move sideways
     // TODO(randy): Need a better way of figuring out if the water pixel is level
     // Right now it's a bit icky, but good enough
-    /*
-            if (has_moved)
-                pixel->vertical_move_timer = 20;
-            else if (pixel->vertical_move_timer != 0)
-                pixel->vertical_move_timer--;
+    if (has_moved)
+        pixel->vertical_move_timer = 20;
+    else if (pixel->vertical_move_timer != 0)
+        pixel->vertical_move_timer--;
+    
+    B8 has_pixel_reached_level = pixel->vertical_move_timer == 0;
+    B8 skip_sideways_update = (has_pixel_reached_level ? !(update_count % 10 == 0) : 0);
+    
+    if (//!skip_sideways_update &&
+        !has_moved &&
+        !pixel->is_resting &&
+        !F32Compare(pixel->vel.x, 0.0f, 0.01f) &&
+        (pixel->flags & PIXEL_FLAG_move_sideways_from_x_vel))
+    {
+        Vec2S32 from_loc = local_pos;
+        Vec2S32 to_loc = V2S32(from_loc.x + roundf(pixel->vel.x), from_loc.y);
+        
+        Vec2S32 pixel_path[16];
+        U32 count = 0;
+        DrawLineAtoB(from_loc, to_loc, pixel_path, &count, 16);
+        
+        Pixel *last_good_pixel = 0;
+        Pixel *next_pixel = 0;
+        for (int i = 1; i < count; i++)
+        {
+            Vec2S32 pos = pixel_path[i];
+            Vec2S32 offset = V2S32(local_pos.x - pos.x, local_pos.y - pos.y);
+            next_pixel = PixelAtRelativeOffset(chunk, pixel, local_pos, offset);
             
-            B8 has_pixel_reached_level = pixel->vertical_move_timer == 0;
-            B8 skip_sideways_update = (has_pixel_reached_level ? !(update_count % 10 == 0) : 0);
-            
-            if (!skip_sideways_update &&
-                !has_moved &&
-                is_falling_check &&
-                !F32Compare(pixel->vel.x, 0.0f, 0.01f) &&
-                (pixel->flags & PIXEL_FLAG_move_sideways_from_x_vel))
+            if (next_pixel &&
+                (CanPixelMoveTo(pixel, next_pixel)))
             {
-                Vec2S32 from_loc = V2S32(x, y);
-                Vec2S32 to_loc = V2S32(x + roundf(pixel->vel.x), y);
+                // || (has_pixel_reached_level ? 0 : pixel->flags == next_pixel->flags)
                 
-                Vec2S32 pixel_path[16];
-                U32 count = 0;
-                DrawLineAtoB(from_loc, to_loc, pixel_path, &count, 16);
-                
-                Pixel *last_good_pixel = 0;
-                Pixel *next_pixel = 0;
-                for (int i = 1; i < count; i++)
-                {
-                    Vec2S32 pos = pixel_path[i];
-                    next_pixel = PixelAt(pos.x, pos.y);
-                    
-                    if (CanPixelMoveTo(pixel, next_pixel) ||
-                        (has_pixel_reached_level ? 0 : pixel->flags == next_pixel->flags))
-                    {
-                        last_good_pixel = next_pixel;
-                    }
-                    else
-                    {
-                        break;
-                    }
-                }
-                
-                if (last_good_pixel)
-                {
-                    SwapPixels(pixel, last_good_pixel, &pixel);
-                    has_moved = 1;
-                }
-                else
-                {
-                    pixel->vel.x *= -1;
-                }
-                
-                if (pixel->flags & PIXEL_FLAG_has_friction)
-                    ApplyFrictionToPixel(pixel);
+                last_good_pixel = next_pixel;
             }
-*/
+            else
+            {
+                break;
+            }
+        }
+        
+        if (last_good_pixel)
+        {
+            SwapPixels(pixel, last_good_pixel, &pixel);
+            has_moved = 1;
+        }
+        else
+        {
+            pixel->vel.x *= -1;
+        }
+        
+        if (pixel->flags & PIXEL_FLAG_has_friction)
+            ApplyFrictionToPixel(pixel);
+    }
     
     //~ Inertia
     //pixel->is_resting = !has_moved;
